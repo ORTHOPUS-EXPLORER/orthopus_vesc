@@ -1,16 +1,19 @@
 #include "veschost/veschost.hpp"
+#include <byteswap.h>
+
+using namespace std::chrono_literals;
 
 namespace orthopus
 {
 
 uint16_t f_u16(float v, unsigned int scale)
 {
-    return (uint16_t)(v*scale);
+    return __bswap_16((int16_t)(v*scale));
 }
 
 float u16_f(uint16_t v, unsigned int scale)
 {
-    return (float)(v)/(float)scale;
+    return ((float)(int16_t)(__bswap_16(v)))/(float)scale;
 }
 
 VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCpp* host)
@@ -69,6 +72,7 @@ std::shared_ptr<VESCHost> VESCHost::getInstance()
 VESCHost::VESCHost(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm)
     : vescpp::VESCpp(this_id, comm.get(), false)
     , _can(std::dynamic_pointer_cast<vescpp::comm::CAN>(comm))
+    , _run_tx_th(false)
 {
     if(!_can)
     {
@@ -77,12 +81,49 @@ VESCHost::VESCHost(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> 
     }
 }
 
-bool VESCHost::addDevice(vescpp::VESC::BoardId board_id)
+VESCHost::~VESCHost()
+{
+    if(_run_tx_th)
+    {
+        _run_tx_th = false;
+        _tx_th.join();
+    }
+}
+
+bool VESCHost::startStreaming()
+{
+    if(_run_tx_th)
+        return false;
+    _run_tx_th = true;
+    _tx_th = std::thread([this]()
+    {
+        while(_run_tx_th)
+        {
+            for(auto it = _devs.begin();it != _devs.end();it++)
+            {
+                auto board_id    = it->first;
+                const auto& vesc = std::dynamic_pointer_cast<VESCTarget>(it->second);
+
+                RTDataDS ref;
+                ref.f.ctrl  = __bswap_16(0x1001);
+                ref.f.qd    = f_u16(vesc->qd, ORTHOPUS_COMM_RT_POS_SCALE);
+                ref.f.dqd   = f_u16(vesc->dqd, ORTHOPUS_COMM_RT_VEL_SCALE);
+                ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
+                _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|board_id, ref.raw, sizeof(RTDataDS));
+                //spdlog::error("[{}] Push Refs to 0x{:03X}", id, (CAN_RT_DATA_DOWNSTREAM<<8)|board_id);
+            }
+            std::this_thread::sleep_for(5ms); // 200 Hz
+        }
+    });
+    return true;
+}
+
+std::shared_ptr<VESCTarget> VESCHost::addDevice(vescpp::VESC::BoardId board_id)
 {
     auto can_id = (CAN_RT_DATA_UPSTREAM<<8)|board_id;
     spdlog::debug("[{}<={}] Add CAN Handler 0x{:04X} to receive CAN_RT_DATA_UPSTREAM", id, board_id, can_id);
     _can->_can_handlers.emplace_back(can_id, std::bind(&VESCHost::processRTDataUS, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-    return VESCpp::add_peer<orthopus::VESCTarget>(board_id, ::VESC::HW_TYPE_CUSTOM_MODULE) != nullptr;
+    return VESCpp::add_peer<orthopus::VESCTarget>(board_id, ::VESC::HW_TYPE_CUSTOM_MODULE);
 }
 
 void VESCHost::sendRefs()
@@ -91,7 +132,7 @@ void VESCHost::sendRefs()
     {
         auto board_id = it->first;
         RTDataDS ref;
-        ref.f.ctrl  = 0x1001;
+        ref.f.ctrl  = __bswap_16(0x1001);
         ref.f.qd    = f_u16(1.102, ORTHOPUS_COMM_RT_POS_SCALE);
         ref.f.dqd   = f_u16(1.304, ORTHOPUS_COMM_RT_VEL_SCALE);
         ref.f.tauf  = f_u16(1.506, ORTHOPUS_COMM_RT_TRQ_SCALE);
@@ -109,11 +150,11 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
         return;
     
     //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
-    auto qm     = u16_f(((uint16_t)data[0]<<8)|data[1], ORTHOPUS_COMM_RT_TRQ_SCALE);
-    auto dqm    = u16_f(((uint16_t)data[2]<<8)|data[3], ORTHOPUS_COMM_RT_VEL_SCALE);
-    auto taum   = u16_f(((uint16_t)data[4]<<8)|data[5], ORTHOPUS_COMM_RT_POS_SCALE);
-    auto status = ((uint16_t)data[6]<<8)|data[7];
-    spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, qm, dqm, taum, status);
+    vesc->qm     =      u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
+    vesc->dqm    =      u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE);
+    vesc->taum   =      u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
+    auto status  = __bswap_16(((uint16_t)data[7]<<8)|data[6]);
+    spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, vesc->qm, vesc->dqm, vesc->taum, status);
     vesc->_meas_cnt++;
     if(vesc->_meas_last_tp.time_since_epoch().count() > 0)
     {

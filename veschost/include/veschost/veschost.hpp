@@ -42,6 +42,14 @@ class VESCTarget
 : public vescpp::VESCCustomHw
 {
 public:
+    typedef struct
+    {
+        uint16_t status;
+        std::unordered_map<std::string, double&> meas;
+        uint16_t ctrl;
+        std::unordered_map<std::string, double&> refs;
+    } joint_t;
+
     VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCpp* host=nullptr);
     vescpp::Time::time_point _meas_last_tp;
     double _meas_dt_last,
@@ -52,6 +60,43 @@ public:
            _meas_dt_var,
            _meas_dt_stddev;
     size_t _meas_cnt;
+    double qm, dqm, ddqm, taum,
+           qd, dqd, tauf;
+    double sqm, sqd;
+    std::unordered_map<std::string, joint_t> joints = 
+    {{
+        {
+            "servo",
+            {
+                0x0000,
+                {{
+                    {"position"  , sqm},
+                }},
+                0x0000,
+                {{
+                    {"position"  , sqd},
+                }},
+            },
+        },
+        {
+            "joint",
+            {
+                0x0000,
+                {{
+                    {"position"    , qm  },
+                    {"velocity"    , dqm },
+                    {"acceleration", ddqm},
+                    {"effort"      , taum},
+                }},
+                0x0000,
+                {{
+                    {"position" , qd},
+                    {"velocity" , dqd},
+                    {"effort"   , tauf},
+                }},
+            },
+        },
+    }};
 };
 
 class VESCDevice
@@ -71,17 +116,22 @@ class VESCHost
 {
 public:
     VESCHost(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm);
+    ~VESCHost();
     static std::shared_ptr<VESCHost> spawnInstance(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm) ;
     static std::shared_ptr<VESCHost> getInstance();
 
-    bool addDevice(vescpp::VESC::BoardId board_id);
+    std::shared_ptr<VESCTarget> addDevice(vescpp::VESC::BoardId board_id);
 
     void sendRefs();
+
+    bool startStreaming();
 
     void processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8], const uint8_t len);
     void printStats(void);
 private:
     std::shared_ptr<vescpp::comm::CAN> _can;
+    std::atomic_bool _run_tx_th;
+    std::thread _tx_th;
 };
 
 }
