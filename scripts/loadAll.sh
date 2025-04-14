@@ -18,7 +18,7 @@ else
   exit 0
 fi
 
-cmd_base="./cli/vescpp_cli -P $can_port"
+cmd_base="./cli/vescpp_cli -f -P $can_port"
 
 for i in $ids; do 
   for cnf in "app" "motor" "custom"; do
