@@ -56,6 +56,7 @@ public:
     , _meas_dt_min(std::numeric_limits<double>::max())
     , _meas_dt_max(0)
     , _meas_dt_avg{0}
+    , _meas_dt_vvar{0}
     , _meas_dt_var{0}
     , _meas_dt_stddev{0}
     , _meas_cnt{0}
@@ -65,6 +66,7 @@ public:
            _meas_dt_min,
            _meas_dt_max,
            _meas_dt_avg,
+           _meas_dt_vvar,
            _meas_dt_var,
            _meas_dt_stddev;
     size_t _meas_cnt;
@@ -164,11 +166,12 @@ public:
             if(dt > vesc->_meas_dt_max)
                 vesc->_meas_dt_max = dt;
             vesc->_meas_dt_last = dt;
-            auto avg = vesc->_meas_dt_avg;
+            auto avg_p = vesc->_meas_dt_avg;
             vesc->_meas_dt_avg += (dt - vesc->_meas_dt_avg)/vesc->_meas_cnt;
             if(vesc->_meas_cnt > 1)
             {
-                vesc->_meas_dt_var += (dt - avg)*(dt - vesc->_meas_dt_avg)/(vesc->_meas_cnt-1);
+                vesc->_meas_dt_vvar += (dt - avg_p)*(dt - vesc->_meas_dt_avg);
+                vesc->_meas_dt_var = sqrt(vesc->_meas_dt_vvar)/(vesc->_meas_cnt-1);
                 vesc->_meas_dt_stddev = sqrt(vesc->_meas_dt_var);
             }
         }

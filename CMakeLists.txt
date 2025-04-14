@@ -21,3 +21,4 @@ set(VESCPP_BUILD_TESTS   OFF)
 add_subdirectory(lib/vescpp/)
 
 add_subdirectory(bench/)
+add_subdirectory(tests/)
