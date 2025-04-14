@@ -18,11 +18,20 @@ else
   exit 0
 fi
 
-cmd_base="./cli/vescpp_cli -P $can_port -D $dir"
+cmd_base="./cli/vescpp_cli -P $can_port"
 
 for i in $ids; do 
   for cnf in "app" "motor" "custom"; do
-    cmd="$cmd_base -i $i save_conf $cnf"
+    cnff="`ls -Art $dir/${cnf}_conf_${i}_*.json 2> /dev/null | tail -n 1`"
+    if [ -z "$cnff" ]; then
+      continue
+    fi
+    uuidb=`cat $cnff | jq -r '.["info"]["uuid"]["bytes"] | .[]'`
+    uuid="0x"
+    for ub in $uuidb; do
+      uuid="${uuid}`printf "%x" $ub`"
+    done
+    cmd="$cmd_base -i $i -u $uuid load_conf $cnf $cnff"
     #echo $cmd
     $cmd;
   done
