@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.22)
 project(bench)
 
 # Bench
@@ -13,9 +13,8 @@ PUBLIC
 
 target_link_libraries(${PROJECT_NAME}
 PUBLIC
+  veschost
   lyra
-  spdlog
-  vescpp
 )
 
 set_target_properties(${PROJECT_NAME} 

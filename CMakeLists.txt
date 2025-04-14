@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.22)
 project(VESCHost)
 
 include(FetchContent)
@@ -20,5 +20,11 @@ set(VESCPP_BUILD_EXAMPLE OFF)
 set(VESCPP_BUILD_TESTS   OFF)
 add_subdirectory(lib/vescpp/)
 
-add_subdirectory(bench/)
-add_subdirectory(tests/)
+add_subdirectory(veschost/)
+
+if($ENV{COLCON_PREFIX_PATH})
+  add_subdirectory(ros/)
+else()
+  add_subdirectory(bench/)
+  add_subdirectory(tests/)
+endif()
