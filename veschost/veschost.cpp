@@ -26,11 +26,10 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCpp* host)
 , _meas_cnt{0}
 {
 }
-  
 
-VESCDevice::VESCDevice(vescpp::VESC::BoardId this_id, vescpp::Comm* comm)
-    : vescpp::VESCpp(this_id, comm, true)
-    , _can(dynamic_cast<vescpp::comm::CAN*>(_comm))
+VESCDevice::VESCDevice(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm)
+    : vescpp::VESCpp(this_id, comm.get(), true)
+    , _can(std::dynamic_pointer_cast<vescpp::comm::CAN>(comm))
 {
     if(!_can)
     {
@@ -54,9 +53,22 @@ void VESCDevice::sendMeas()
     _can->write((CAN_RT_DATA_UPSTREAM<<8)|id, meas.raw, sizeof(RTDataUS));
 }
 
-VESCHost::VESCHost(vescpp::VESC::BoardId this_id, vescpp::Comm* comm)
-    : vescpp::VESCpp(this_id, comm, false)
-    , _can(dynamic_cast<vescpp::comm::CAN*>(_comm))
+static std::shared_ptr<VESCHost> vesc_instance{nullptr};
+
+std::shared_ptr<VESCHost> VESCHost::spawnInstance(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm) 
+{
+    vesc_instance.reset(new VESCHost(this_id, comm));
+    return vesc_instance;
+}
+
+std::shared_ptr<VESCHost> VESCHost::getInstance() 
+{
+    return vesc_instance;
+}
+
+VESCHost::VESCHost(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm)
+    : vescpp::VESCpp(this_id, comm.get(), false)
+    , _can(std::dynamic_pointer_cast<vescpp::comm::CAN>(comm))
 {
     if(!_can)
     {
