@@ -8,9 +8,9 @@ namespace orthopus
     constexpr vescpp::comm::CAN::Id CAN_RT_DATA_UPSTREAM   = 179;
     constexpr vescpp::comm::CAN::Id CAN_RT_DATA_DOWNSTREAM = 180;
 
-    constexpr unsigned int ORTHOPUS_COMM_RT_POS_SCALE = 1000;
-    constexpr unsigned int ORTHOPUS_COMM_RT_VEL_SCALE = 1000;
-    constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE = 1000;
+    constexpr unsigned int ORTHOPUS_COMM_RT_POS_SCALE = 50;
+    constexpr unsigned int ORTHOPUS_COMM_RT_VEL_SCALE = 50;
+    constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE = 50;
 
 
     constexpr uint16_t ORTHOPUS_CTRL_MODE_OFF = 0x0000;

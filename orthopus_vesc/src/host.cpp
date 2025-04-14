@@ -3,6 +3,22 @@
 
 using namespace std::chrono_literals;
 
+#ifdef M_PI
+    #define M_PI 3.14159265358979323846
+#endif
+
+#ifndef DEG2RAD_f
+    #define DEG2RAD_f(deg) ((deg) * (float)(M_PI / 180.0))
+#endif
+#ifndef RPM2RADS_f
+    #define RPM2RADS_f(rpm) ((rpm) * (float)(M_PI / 30.0))
+#endif
+#ifndef RAD2DEG_f
+    #define RAD2DEG_f(rad) ((rad) * (float)(180.0 / M_PI))
+#endif
+#ifndef RADS2RPM_f
+    #define RADS2RPM_f(rads)  ((rads) * (float)(30.0 / M_PI))
+#endif
 namespace orthopus
 {
 
@@ -51,8 +67,8 @@ bool VESCHost::startStreaming()
         {
             RTDataDS ref;
             ref.f.ctrl  = __bswap_16(vesc->ctrl_word);
-            ref.f.qd    = f_u16(vesc->qd, ORTHOPUS_COMM_RT_POS_SCALE);
-            ref.f.dqd   = f_u16(vesc->dqd, ORTHOPUS_COMM_RT_VEL_SCALE);
+            ref.f.qd    = f_u16(RAD2DEG_f(vesc->qd), ORTHOPUS_COMM_RT_POS_SCALE);
+            ref.f.dqd   = f_u16(RADS2RPM_f(vesc->dqd), ORTHOPUS_COMM_RT_VEL_SCALE);
             ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
         };
@@ -113,7 +129,10 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
     
     //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
     vesc->qm     =      u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
-    vesc->dqm    =      u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE);
+    if(vesc->qm > 180)
+        vesc->qm -= 360;
+    vesc->qm = DEG2RAD_f(vesc->qm);
+    vesc->dqm    =      RPM2RADS_f(u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE));
     vesc->taum   =      u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
     auto status  = __bswap_16(((uint16_t)data[7]<<8)|data[6]);
     spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, vesc->qm, vesc->dqm, vesc->taum, status);
