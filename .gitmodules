@@ -1,0 +1,3 @@
+[submodule "lib/vescpp"]
+	path = lib/vescpp
+	url = ../vescpp.git
