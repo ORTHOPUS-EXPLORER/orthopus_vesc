@@ -8,7 +8,7 @@ add_test_target(NAME stats
                 SRCS stats.cpp       
                 LIBRARIES vescpp
                )
-add_test_target(NAME veschost_all          
+add_test_target(NAME orthopus_vesc_all          
                 SRCS  all.cpp                         
                 ALL
                )

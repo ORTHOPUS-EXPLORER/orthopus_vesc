@@ -1,9 +1,12 @@
-project(veschost)
+project(orthopus_vesc)
 
 find_package(spdlog 1.9.2 REQUIRED)
 
 add_library(${PROJECT_NAME} STATIC
-  veschost.cpp
+  src/common.cpp
+  src/device.cpp
+  src/host.cpp
+  src/target.cpp
 )
 
 target_include_directories(${PROJECT_NAME}

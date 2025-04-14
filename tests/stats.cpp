@@ -2,9 +2,9 @@
 
 #include "spdlog/spdlog.h"
 
-#include "veschost_tests.hpp"
+#include "orthopus_vesc_tests.hpp"
 
-TEST_CASE("test stats","[veschosts][stats]")
+TEST_CASE("test stats","[orthopus_vescs][stats]")
 {
   auto dataStat = [](double* data, size_t len) -> std::tuple<double, double, double>
   {

@@ -1,8 +1,8 @@
-# VESCHost
+# Orthopus_VESC
 
 ## About
 
-VESC-compatible C++ host app using CAN
+VESC-compatible C++ host app using CAN for VESC actuators
 
 ## Build and use
 
