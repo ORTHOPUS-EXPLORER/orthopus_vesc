@@ -125,7 +125,7 @@ public:
         auto can_id = (CAN_RT_DATA_UPSTREAM<<8)|board_id;
         spdlog::debug("[{}<={}] Add CAN Handler 0x{:04X} to receive CAN_RT_DATA_UPSTREAM", id, board_id, can_id);
         _can->_can_handlers.emplace_back(can_id, std::bind(&VESCHost::processRTDataUS, this, std::placeholders::_1, std::placeholders::_2, std::placeholders::_3, std::placeholders::_4));
-        return VESCpp::add_peer<orthopus::VESCTarget>(board_id, ::VESC::HW_TYPE_CUSTOM_MODULE);
+        return VESCpp::add_peer<orthopus::VESCTarget>(board_id, ::VESC::HW_TYPE_CUSTOM_MODULE) != nullptr;
     }
 
     void sendRefs()
@@ -147,7 +147,7 @@ public:
         const auto now = vescpp::Time::now();
         //RTDataUS meas;
         auto board_id = can_id & 0xFF;
-        auto* vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
+        auto vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
         if(!vesc)
             return;
         
@@ -185,7 +185,7 @@ public:
         {
             #define STATS_FLOAT_FMT  " 8.5f"
             #define STATS_FLOAT_UNIT "ms"
-            auto* vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
+            auto vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
             if(!vesc)
                 continue;
             spdlog::info("  - [{0}/0x{0:02X}] Received {1:10d} meas. Delta T: Last {2:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ""
@@ -270,10 +270,7 @@ int main(int argc, char**argv)
         {
             auto& vesc = vesc_hosts.emplace_back(new orthopus::VESCHost(board_id, &can_comm));
             for(const auto& id: target_ids)
-            {
                 vesc->addDevice(id&0xFF);
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
         }
         run_tx_th = true;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -293,19 +290,10 @@ int main(int argc, char**argv)
         {
             for(auto& [id, v]: vh->_devs)
             {
-                auto* fw = v->fw();
-                if(!fw)
-                    continue;
-                    
+                auto& fw = v->fw();
                 spdlog::info("[{0}/0x{0:02X}] FW version: {1}.{2} - HW: {3:<15s} - UUID: 0x{4:spn}", id, fw->fw_version_major, fw->fw_version_minor,  fw->hw_name.c_str(), spdlog::to_hex(fw->uuid));
             }
         }
-        /*const auto& can_ids = vesc.scanCAN(std::chrono::milliseconds(100));
-        for(const auto& [id,typ]: can_ids)
-        {
-            vesc.add_peer(id,typ);
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
-        }*/
     }
     else
     {
