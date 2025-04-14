@@ -51,7 +51,23 @@ class VESCTarget
 public:
     VESCTarget(const vescpp::VESC::BoardId id)
     : vescpp::VESCCustomHw(id)
+    , _meas_last_tp{}
+    , _meas_dt_last{0}
+    , _meas_dt_min(std::numeric_limits<double>::max())
+    , _meas_dt_max(0)
+    , _meas_dt_avg{0}
+    , _meas_dt_var{0}
+    , _meas_dt_stddev{0}
+    , _meas_cnt{0}
     {}
+    vescpp::Time::time_point _meas_last_tp;
+    double _meas_dt_last,
+           _meas_dt_min,
+           _meas_dt_max,
+           _meas_dt_avg,
+           _meas_dt_var,
+           _meas_dt_stddev;
+    size_t _meas_cnt;
 };
 
 class VESCDevice
@@ -126,14 +142,58 @@ public:
 
     void processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8], const uint8_t len)
     {
+        const auto now = vescpp::Time::now();
         //RTDataUS meas;
         auto board_id = can_id & 0xFF;
+        auto* vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
+        if(!vesc)
+            return;
+        
         //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
         auto qm     = u16_f(((uint16_t)data[0]<<8)|data[1], ORTHOPUS_COMM_RT_TRQ_SCALE);
         auto dqm    = u16_f(((uint16_t)data[2]<<8)|data[3], ORTHOPUS_COMM_RT_VEL_SCALE);
         auto taum   = u16_f(((uint16_t)data[4]<<8)|data[5], ORTHOPUS_COMM_RT_POS_SCALE);
         auto status = ((uint16_t)data[6]<<8)|data[7];
         spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, qm, dqm, taum, status);
+        vesc->_meas_cnt++;
+        if(vesc->_meas_last_tp.time_since_epoch().count() > 0)
+        {
+            const auto dt = std::chrono::duration_cast<std::chrono::microseconds>(now - vesc->_meas_last_tp).count()/1000.0; //ms
+            if(dt < vesc->_meas_dt_min)
+                vesc->_meas_dt_min = dt;
+            if(dt > vesc->_meas_dt_max)
+                vesc->_meas_dt_max = dt;
+            vesc->_meas_dt_last = dt;
+            auto avg = vesc->_meas_dt_avg;
+            vesc->_meas_dt_avg += (dt - vesc->_meas_dt_avg)/vesc->_meas_cnt;
+            if(vesc->_meas_cnt > 1)
+            {
+                vesc->_meas_dt_var += (dt - avg)*(dt - vesc->_meas_dt_avg)/(vesc->_meas_cnt-1);
+                vesc->_meas_dt_stddev = sqrt(vesc->_meas_dt_var);
+            }
+        }
+        vesc->_meas_last_tp = now;
+    }
+
+    void printStats(void)
+    {
+        spdlog::info("[{:>3d}] VESCHost devices statistics:", this->id);
+        for(const auto& [board_id,_]: _devs)
+        {
+            #define STATS_FLOAT_FMT  " 7.3f"
+            #define STATS_FLOAT_UNIT "ms"
+            auto* vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
+            if(!vesc)
+                continue;
+            spdlog::info("       - [{0}/0x{0:02X}] Received {1:10d} meas. Delta T: Last {2:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ""
+                         ", Min: {3:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ", Max:{4:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ""
+                         ", Avg: {5:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ", Var: {6:" STATS_FLOAT_FMT "}, StdDev: {7:" STATS_FLOAT_FMT "}"
+            , vesc->id
+            , vesc->_meas_cnt
+            , vesc->_meas_dt_last
+            , vesc->_meas_dt_min, vesc->_meas_dt_max
+            , vesc->_meas_dt_avg, vesc->_meas_dt_var, vesc->_meas_dt_stddev);
+        }
     }
 private:
     vescpp::comm::CAN* _can;
@@ -149,7 +209,7 @@ int main(int argc, char**argv)
     std::string can_port = "can0";
     std::vector<int> host_ids{45}, target_ids{};
     size_t targets_nb = 1;
-    uint16_t host_delay = 2,
+    unsigned int host_delay = 4,
              devs_delay = 2;
     bool device_mode = false;
     auto cli = lyra::help(show_help).description("VESCHost CAN communication benchmark")
@@ -159,6 +219,9 @@ int main(int argc, char**argv)
     | lyra::opt( host_ids, "host_ids")
         ["-i"]["--hosts-id"]
         ("Device ID")
+    | lyra::opt( host_delay, "host_delay")
+        ["-D"]["--hosts-delay"]
+        ("Delay between refs")
     | lyra::opt( target_ids, "target_ids")
         ["-t"]["--target-ids"]
         ("Target devices IDs")
@@ -220,6 +283,8 @@ int main(int argc, char**argv)
                     d.sendRefs();
                 std::this_thread::sleep_until(t_st + std::chrono::milliseconds(host_delay));
             }
+            for(auto& d: vesc_hosts)
+                d.printStats();
         }));
         for(auto& [id, v]: vesc_hosts[0]._devs)
         {
