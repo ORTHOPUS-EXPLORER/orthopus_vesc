@@ -47,23 +47,35 @@ bool VESCHost::startStreaming()
     _run_tx_th = true;
     _tx_th = std::thread([this]()
     {
+        auto writeRefs = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
+        {
+            RTDataDS ref;
+            ref.f.ctrl  = __bswap_16(vesc->ctrl_word);
+            ref.f.qd    = f_u16(vesc->qd, ORTHOPUS_COMM_RT_POS_SCALE);
+            ref.f.dqd   = f_u16(vesc->dqd, ORTHOPUS_COMM_RT_VEL_SCALE);
+            ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
+            _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
+        };
         while(_run_tx_th)
         {
-            for(auto it = _devs.begin();it != _devs.end();it++)
+            for(const auto& [board_id, it]:_devs)
             {
-                auto board_id    = it->first;
-                const auto& vesc = std::dynamic_pointer_cast<VESCTarget>(it->second);
-
-                RTDataDS ref;
-                ref.f.ctrl  = __bswap_16(0x1001);
-                ref.f.qd    = f_u16(vesc->qd, ORTHOPUS_COMM_RT_POS_SCALE);
-                ref.f.dqd   = f_u16(vesc->dqd, ORTHOPUS_COMM_RT_VEL_SCALE);
-                ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
-                _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|board_id, ref.raw, sizeof(RTDataDS));
-                //spdlog::error("[{}] Push Refs to 0x{:03X}", id, (CAN_RT_DATA_DOWNSTREAM<<8)|board_id);
+                writeRefs(std::dynamic_pointer_cast<VESCTarget>(it));
+                //spdlog::error("[{}] Push Refs to 0x{:03X}", id, (CAN_RT_DATA_DOWNSTREAM<<8)|it->id);
             }
             std::this_thread::sleep_for(5ms); // 200 Hz
         }
+        // Force in POS mode on the last meas
+        for(auto& [_, it]: _devs)
+        {
+            const auto& vesc = std::dynamic_pointer_cast<VESCTarget>(it);
+            vesc->ctrl_word = ORTHOPUS_CTRL_MODE_POS;
+            vesc->qd = vesc->qm;
+            vesc->dqd = 0.0;
+            vesc->tauf = 0.0;
+            writeRefs(vesc);
+        }
+        // Then exit
     });
     return true;
 }

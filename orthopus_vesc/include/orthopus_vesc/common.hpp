@@ -12,6 +12,14 @@ namespace orthopus
     constexpr unsigned int ORTHOPUS_COMM_RT_VEL_SCALE = 1000;
     constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE = 1000;
 
+
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_OFF = 0x0000;
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_POS = 0x0001;
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_VEL = 0x0002;
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_TRQ = 0x0004;
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_MSK = 0x000F;
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_ERR = 0x0010;
+
     uint16_t f_u16(float v, unsigned int scale);
     float u16_f(uint16_t v, unsigned int scale);
 

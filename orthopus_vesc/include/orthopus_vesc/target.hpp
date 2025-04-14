@@ -14,6 +14,7 @@ class VESCTarget
 public:
     typedef struct
     {
+        bool in_use;
         uint16_t status;
         std::unordered_map<std::string, double&> meas;
         uint16_t ctrl;
@@ -30,14 +31,19 @@ public:
            _meas_dt_var,
            _meas_dt_stddev;
     size_t _meas_cnt;
+    uint16_t ctrl_word,
+             status_word;
     double qm, dqm, ddqm, taum,
            qd, dqd, tauf;
     double sqm, sqd;
     std::unordered_map<std::string, joint_t> joints = 
     {{
+        // DO NOT REORDER. There's currently an evil trick to map the right joints. 
+        // You have been warned
         {
             "servo",
             {
+                false,
                 0x0000,
                 {{
                     {"position"  , sqm},
@@ -51,6 +57,7 @@ public:
         {
             "joint",
             {
+                false,
                 0x0000,
                 {{
                     {"position"    , qm  },
