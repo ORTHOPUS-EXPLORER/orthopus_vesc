@@ -1,14 +1,19 @@
-add_library(veschost STATIC
+project(veschost)
+
+find_package(spdlog REQUIRED)
+
+add_library(${PROJECT_NAME} STATIC
   veschost.cpp
 )
 
-target_include_directories(veschost
+target_include_directories(${PROJECT_NAME}
 PUBLIC
-  include/
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_LIST_DIR}/include>
+  $<INSTALL_INTERFACE:include>
 )
 
-target_link_libraries(veschost
+target_link_libraries(${PROJECT_NAME}
 PUBLIC
   vescpp
-  spdlog
+  spdlog::spdlog
 )
