@@ -49,8 +49,8 @@ class VESCTarget
 : public vescpp::VESCCustomHw
 {
 public:
-    VESCTarget(const vescpp::VESC::BoardId id)
-    : vescpp::VESCCustomHw(id)
+    VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCpp* host=nullptr)
+    : vescpp::VESCCustomHw(id, host)
     , _meas_last_tp{}
     , _meas_dt_last{0}
     , _meas_dt_min(std::numeric_limits<double>::max())
@@ -183,14 +183,14 @@ public:
         spdlog::info("[{:>3d}] VESCHost devices statistics:", this->id);
         for(const auto& [board_id,_]: _devs)
         {
-            #define STATS_FLOAT_FMT  " 7.3f"
+            #define STATS_FLOAT_FMT  " 8.5f"
             #define STATS_FLOAT_UNIT "ms"
             auto* vesc = VESCpp::get_peer<orthopus::VESCTarget>(board_id);
             if(!vesc)
                 continue;
-            spdlog::info("       - [{0}/0x{0:02X}] Received {1:10d} meas. Delta T: Last {2:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ""
+            spdlog::info("  - [{0}/0x{0:02X}] Received {1:10d} meas. Delta T: Last {2:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ""
                          ", Min: {3:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ", Max:{4:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ""
-                         ", Avg: {5:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ", Var: {6:" STATS_FLOAT_FMT "}, StdDev: {7:" STATS_FLOAT_FMT "}"
+                         ", Avg: {5:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT ", Var: {6:" STATS_FLOAT_FMT "}, StdDev: {7:" STATS_FLOAT_FMT "}" STATS_FLOAT_UNIT
             , vesc->id
             , vesc->_meas_cnt
             , vesc->_meas_dt_last
@@ -212,7 +212,7 @@ int main(int argc, char**argv)
     std::string can_port = "can0";
     std::vector<int> host_ids{45}, target_ids{};
     size_t targets_nb = 1;
-    unsigned int host_delay = 4,
+    unsigned int host_delay = 2,
              devs_delay = 2;
     bool device_mode = false;
     auto cli = lyra::help(show_help).description("VESCHost CAN communication benchmark")
@@ -254,8 +254,8 @@ int main(int argc, char**argv)
                      run_rx_th=false;
     std::unique_ptr<std::thread> tx_th,
                                  rx_th;
-    std::vector<orthopus::VESCHost> vesc_hosts;
-    std::vector<orthopus::VESCDevice> vesc_devs;
+    std::vector<std::unique_ptr<orthopus::VESCHost>> vesc_hosts;
+    std::vector<std::unique_ptr<orthopus::VESCDevice>> vesc_devs;
     if(target_ids.size() == 1 && targets_nb > 1)
     {
         const auto t0_id = target_ids[0];
@@ -268,10 +268,10 @@ int main(int argc, char**argv)
         spdlog::info("[{}] Start benchmark with Host IDs {}, Target IDs {}", can_port, fmt::join(host_ids, ", "), fmt::join(target_ids, ", "));
         for(const auto& board_id: host_ids)
         {
-            auto& vesc = vesc_hosts.emplace_back(board_id, &can_comm);
+            auto& vesc = vesc_hosts.emplace_back(new orthopus::VESCHost(board_id, &can_comm));
             for(const auto& id: target_ids)
             {
-                vesc.addDevice(id&0xFF);
+                vesc->addDevice(id&0xFF);
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
             }
         }
@@ -283,18 +283,22 @@ int main(int argc, char**argv)
             {
                 vescpp::Time::time_point t_st = vescpp::Time::now();
                 for(auto& d: vesc_hosts)
-                    d.sendRefs();
+                    d->sendRefs();
                 std::this_thread::sleep_until(t_st + std::chrono::milliseconds(host_delay));
             }
             for(auto& d: vesc_hosts)
-                d.printStats();
+                d->printStats();
         }));
-        for(auto& [id, v]: vesc_hosts[0]._devs)
+        for(auto& vh: vesc_hosts)
         {
-            if(!v->fw.is_valid)
-                continue;
-                
-            spdlog::info("[{0}/0x{0:02X}] FW version: {1}.{2} - HW: {3:<15s} - UUID: 0x{4:spn}", id, v->fw.fw_version_major, v->fw.fw_version_minor,  v->fw.hw_name.c_str(), spdlog::to_hex(v->fw.uuid));
+            for(auto& [id, v]: vh->_devs)
+            {
+                auto* fw = v->fw();
+                if(!fw)
+                    continue;
+                    
+                spdlog::info("[{0}/0x{0:02X}] FW version: {1}.{2} - HW: {3:<15s} - UUID: 0x{4:spn}", id, fw->fw_version_major, fw->fw_version_minor,  fw->hw_name.c_str(), spdlog::to_hex(fw->uuid));
+            }
         }
         /*const auto& can_ids = vesc.scanCAN(std::chrono::milliseconds(100));
         for(const auto& [id,typ]: can_ids)
@@ -308,7 +312,7 @@ int main(int argc, char**argv)
         spdlog::info("[{}] Start benchmark with Target IDs {}", can_port, fmt::join(target_ids, ", "));
         vesc_devs.reserve(target_ids.size());
         for(const auto& board_id: target_ids)
-            vesc_devs.emplace_back(board_id, &can_comm);
+            vesc_devs.emplace_back(new orthopus::VESCDevice(board_id, &can_comm));
         
         
         run_tx_th = true;
@@ -318,7 +322,7 @@ int main(int argc, char**argv)
             {
                 vescpp::Time::time_point t_st = vescpp::Time::now();
                 for(auto& d: vesc_devs)
-                    d.sendMeas();
+                    d->sendMeas();
                 std::this_thread::sleep_until(t_st + std::chrono::milliseconds(devs_delay));
             }
         }));
