@@ -8,6 +8,7 @@
   <license>TODO: License declaration</license>
 
   <buildtool_depend>ament_cmake</buildtool_depend>
+  <build_depend>nlohmann-json-dev</build_depend>
   
   <depend>pluginlib</depend>
   <depend>hardware_interface</depend>
