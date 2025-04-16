@@ -128,13 +128,13 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
         return;
     
     //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
-    vesc->qm     =      u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
+    vesc->qm     =            u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
     if(vesc->qm > 180)
         vesc->qm -= 360;
-    vesc->qm = DEG2RAD_f(vesc->qm);
-    vesc->dqm    =      RPM2RADS_f(u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE));
-    vesc->taum   =      u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
-    auto status  = __bswap_16(((uint16_t)data[7]<<8)|data[6]);
+    vesc->qm     = DEG2RAD_f(vesc->qm);
+    vesc->dqm    = RPM2RADS_f(u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE));
+    vesc->taum   =            u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
+    auto status  =       __bswap_16(((uint16_t)data[7]<<8)|data[6]);
     spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, vesc->qm, vesc->dqm, vesc->taum, status);
     vesc->_meas_cnt++;
     if(vesc->_meas_last_tp.time_since_epoch().count() > 0)
