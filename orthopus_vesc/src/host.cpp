@@ -58,11 +58,17 @@ VESCHost::~VESCHost()
 
 bool VESCHost::startStreaming()
 {
-    if(_run_tx_th)
+    const auto rt_cnt = _rt_stream_ms.count();
+    const auto aux_cnt = _aux_stream_ms.count();
+
+    if(_run_tx_th || (!rt_cnt && !aux_cnt))
         return false;
     _run_tx_th = true;
+    
     _tx_th = std::thread([this]()
     {
+        const auto rt_cnt = _rt_stream_ms.count();
+        const auto aux_cnt = _aux_stream_ms.count();
         auto writeRefs = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
         {
             RTDataDS ref;
@@ -86,7 +92,7 @@ bool VESCHost::startStreaming()
         {
             auto now = vescpp::Time::now();
             // RT
-            if(now >= next_rt)
+            if(rt_cnt > 0 && now >= next_rt)
             {
                 for(const auto& [board_id, it]:_devs)
                 {
@@ -97,7 +103,7 @@ bool VESCHost::startStreaming()
                 continue;
             }
             // Aux
-            if(now >= next_aux)
+            if(aux_cnt > 0 && now >= next_aux)
             {
                 for(const auto& [board_id, it]:_devs)
                 {
@@ -108,7 +114,13 @@ bool VESCHost::startStreaming()
                 continue;
             }
             // FIXME: Sleeping may not be that precise, consider spinning instead
-            std::this_thread::sleep_until(next_rt < next_aux ? next_rt : next_aux);
+            if(rt_cnt > 0 && aux_cnt > 0) 
+                std::this_thread::sleep_until(next_rt < next_aux ? next_rt : next_aux);
+            else if(rt_cnt > 0)
+                std::this_thread::sleep_until(next_rt);
+            else
+                std::this_thread::sleep_until(next_aux);
+
         }
         // Force in POS mode on the last meas
         for(auto& [_, it]: _devs)
@@ -129,15 +141,15 @@ bool VESCHost::setRTStreamRate(double rate_hz)
 {
     if(_run_tx_th || rate_hz < 0 || rate_hz > 500)  
         return false;
-    _rt_stream_ms = std::chrono::milliseconds((unsigned int)(1000/rate_hz));
+    _rt_stream_ms = std::chrono::milliseconds(rate_hz ? (unsigned int)(1000/rate_hz) : 0);
     return true;
 }
 
 bool VESCHost::setAuxStreamRate(double rate_hz)
 {
-    if(_run_tx_th)
+    if(_run_tx_th || rate_hz < 0 || rate_hz > 500)
         return false;
-    _aux_stream_ms = std::chrono::milliseconds((unsigned int)(1000/rate_hz));
+    _aux_stream_ms = std::chrono::milliseconds(rate_hz ? (unsigned int)(1000/rate_hz) : 0);
     return true;
 }
 
