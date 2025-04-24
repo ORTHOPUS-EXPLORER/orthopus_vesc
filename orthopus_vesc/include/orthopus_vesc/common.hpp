@@ -7,10 +7,13 @@ namespace orthopus
 {
     constexpr vescpp::comm::CAN::Id CAN_RT_DATA_UPSTREAM   = 179;
     constexpr vescpp::comm::CAN::Id CAN_RT_DATA_DOWNSTREAM = 180;
+    //constexpr vescpp::comm::CAN::Id CAN_RT_DATA_UPSTREAM   = 181;
+    constexpr vescpp::comm::CAN::Id CAN_AUX_DATA_DOWNSTREAM = 182;
 
-    constexpr unsigned int ORTHOPUS_COMM_RT_POS_SCALE = 50;
-    constexpr unsigned int ORTHOPUS_COMM_RT_VEL_SCALE = 1;
-    constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE = 50;
+    constexpr unsigned int ORTHOPUS_COMM_RT_POS_SCALE    = 50;
+    constexpr unsigned int ORTHOPUS_COMM_RT_VEL_SCALE    = 1;
+    constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE    = 50;
+    constexpr unsigned int ORTHOPUS_COMM_AUX_SERVO_SCALE = 1000;
 
 
     constexpr uint16_t ORTHOPUS_CTRL_MODE_OFF = 0x0000;
@@ -45,7 +48,14 @@ namespace orthopus
             uint16_t ctrl; 
         } f;
     } RTDataDS;
-
+    typedef union 
+    {
+        uint8_t raw[2];
+        struct
+        {
+            uint16_t servo;
+        } f;
+    } AuxDataDS;
     
     uint16_t f_u16(float v, unsigned int scale);
     float u16_f(uint16_t v, unsigned int scale);

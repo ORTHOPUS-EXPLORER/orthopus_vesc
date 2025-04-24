@@ -22,12 +22,17 @@ public:
 
     bool startStreaming();
 
+    bool setRTStreamRate(double rate_hz);
+    bool setAuxStreamRate(double rate_hz);
+
     void processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8], const uint8_t len);
     void printStats(void);
 private:
     std::shared_ptr<vescpp::comm::CAN> _can;
     std::atomic_bool _run_tx_th;
     std::thread _tx_th;
+    std::chrono::milliseconds _rt_stream_ms,
+                              _aux_stream_ms;
 };
 
 }

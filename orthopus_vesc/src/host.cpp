@@ -72,14 +72,43 @@ bool VESCHost::startStreaming()
             ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
         };
+
+        auto writeAux = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
+        {
+            AuxDataDS ref;
+            ref.f.servo  = f_u16(vesc->sqd, ORTHOPUS_COMM_AUX_SERVO_SCALE);
+            _can->write((CAN_AUX_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(AuxDataDS));
+        };
+
+        const auto now = vescpp::Time::now();
+        vescpp::Time::time_point next_rt{now}, next_aux{now};
         while(_run_tx_th)
         {
-            for(const auto& [board_id, it]:_devs)
+            auto now = vescpp::Time::now();
+            // RT
+            if(now >= next_rt)
             {
-                writeRefs(std::dynamic_pointer_cast<VESCTarget>(it));
-                //spdlog::error("[{}] Push Refs to 0x{:03X}", id, (CAN_RT_DATA_DOWNSTREAM<<8)|it->id);
+                for(const auto& [board_id, it]:_devs)
+                {
+                    writeRefs(std::dynamic_pointer_cast<VESCTarget>(it));
+                    //spdlog::error("[{}] Push Refs to 0x{:03X}", id, (CAN_RT_DATA_DOWNSTREAM<<8)|it->id);
+                }
+                next_rt = now + _rt_stream_ms;
+                continue;
             }
-            std::this_thread::sleep_for(5ms); // 200 Hz
+            // Aux
+            if(now >= next_aux)
+            {
+                for(const auto& [board_id, it]:_devs)
+                {
+                    writeAux(std::dynamic_pointer_cast<VESCTarget>(it));
+                    //spdlog::error("[{}] Push Aux to 0x{:03X}", id, (CAN_AUX_DATA_DOWNSTREAM<<8)|it->id);
+                }
+                next_aux = now + _aux_stream_ms;
+                continue;
+            }
+            // FIXME: Sleeping may not be that precise, consider spinning instead
+            std::this_thread::sleep_until(next_rt < next_aux ? next_rt : next_aux);
         }
         // Force in POS mode on the last meas
         for(auto& [_, it]: _devs)
@@ -93,6 +122,22 @@ bool VESCHost::startStreaming()
         }
         // Then exit
     });
+    return true;
+}
+
+bool VESCHost::setRTStreamRate(double rate_hz)
+{
+    if(_run_tx_th || rate_hz < 0 || rate_hz > 500)  
+        return false;
+    _rt_stream_ms = std::chrono::milliseconds((unsigned int)(1000/rate_hz));
+    return true;
+}
+
+bool VESCHost::setAuxStreamRate(double rate_hz)
+{
+    if(_run_tx_th)
+        return false;
+    _aux_stream_ms = std::chrono::milliseconds((unsigned int)(1000/rate_hz));
     return true;
 }
 

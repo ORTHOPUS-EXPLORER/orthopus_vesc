@@ -35,7 +35,8 @@ public:
              status_word;
     double qm, dqm, ddqm, taum,
            qd, dqd, tauf;
-    double sqm, sqd;
+    double sqm{0.5}, // FIXME: Find middle/default value for SERVO joint
+           sqd;
     std::unordered_map<std::string, joint_t> joints = 
     {{
         // DO NOT REORDER. There's currently an evil trick to map the right joints. 
