@@ -37,16 +37,12 @@ install(DIRECTORY
 if(DEFINED ENV{AMENT_PREFIX_PATH})
   find_package(ament_cmake REQUIRED)
 
-  set_target_properties(spdlog PROPERTIES POSITION_INDEPENDENT_CODE ON)
 
   install(
     TARGETS 
       ${PROJECT_NAME} 
       vescpp 
-      spdlog
       heatshrink
-      nlohmann_json
-    EXPORT export_${PROJECT_NAME} 
   )
   
   install(
@@ -66,9 +62,6 @@ if(DEFINED ENV{AMENT_PREFIX_PATH})
     heatshrink
   )
 
-  ament_export_targets(
-    export_${PROJECT_NAME}
-  )
 
   ament_package()
 endif()
