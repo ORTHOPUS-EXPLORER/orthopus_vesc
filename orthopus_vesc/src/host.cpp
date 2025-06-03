@@ -19,6 +19,9 @@ using namespace std::chrono_literals;
 #ifndef RADS2RPM_f
     #define RADS2RPM_f(rads)  ((rads) * (float)(30.0 / M_PI))
 #endif
+#ifndef WRAP_DEG360_f
+    #define WRAP_DEG360_f(deg) (fmodf((deg), 360.0f) < 0.0f ? fmodf((deg), 360.0f) + 360.0f : fmodf((deg), 360.0f))
+#endif
 namespace orthopus
 {
 
@@ -73,7 +76,7 @@ bool VESCHost::startStreaming()
         {
             RTDataDS ref;
             ref.f.ctrl  = __bswap_16(vesc->ctrl_word);
-            ref.f.qd    = f_u16(RAD2DEG_f(vesc->qd), ORTHOPUS_COMM_RT_POS_SCALE);
+            ref.f.qd    = f_u16(WRAP_DEG360_f(RAD2DEG_f(vesc->qd)), ORTHOPUS_COMM_RT_POS_SCALE); //TOTO: use unsigned to use full scale?
             ref.f.dqd   = f_u16(RADS2RPM_f(vesc->dqd), ORTHOPUS_COMM_RT_VEL_SCALE);
             ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
