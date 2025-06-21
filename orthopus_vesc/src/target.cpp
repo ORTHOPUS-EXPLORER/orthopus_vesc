@@ -1,3 +1,4 @@
+#include "orthopus_vesc/common.hpp"
 #include "orthopus_vesc/target.hpp"
 
 using namespace std::chrono_literals;
@@ -16,6 +17,47 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
   , _meas_dt_var{0}
   , _meas_dt_stddev{0}
   , _meas_cnt{0}
+  , joint {
+        false,
+        false,
+        0xFFFF,
+        {{
+            {"position"    , 0.0},
+            {"velocity"    , 0.0},
+            {"acceleration", 0.0},
+            {"effort"      , 0.0},
+        }},
+        ORTHOPUS_CTRL_MODE_OFF,
+        {{
+            {"position" , 0.0},
+            {"velocity" , 0.0},
+            {"effort"   , 0.0},
+        }},
+    }
+  , servo {
+        false,
+        false,
+        0xFFFF, // Unused
+        {{
+            {"position"  , 0.5}, // FIXME: Find middle/default value for SERVO joint
+        }},
+        ORTHOPUS_CTRL_MODE_OFF, // Unused
+        {{
+            {"position"  , 0.0}, // FIXME: Find middle/default value for SERVO joint
+        }},
+    }
+  , joints {{
+        // DO NOT REORDER. There's currently an evil trick to map the right joints. 
+        // You have been warned
+        {
+            "servo", // Will be overwritten with the name of the instanciated joint
+            servo,
+        },
+        {
+            "joint", // Will be overwritten with the name of the instanciated joint
+            joint,
+        },
+    }}
 {
 
 }

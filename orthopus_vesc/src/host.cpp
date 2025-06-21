@@ -75,17 +75,23 @@ bool VESCHost::startStreaming()
         auto writeRefs = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
         {
             RTDataDS ref;
-            ref.f.ctrl  = __bswap_16(vesc->ctrl_word);
-            ref.f.qd    = f_u16(WRAP_DEG360_f(RAD2DEG_f(vesc->qd)), ORTHOPUS_COMM_RT_POS_SCALE); //TOTO: use unsigned to use full scale?
-            ref.f.dqd   = f_u16(RADS2RPM_f(vesc->dqd), ORTHOPUS_COMM_RT_VEL_SCALE);
-            ref.f.tauf  = f_u16(vesc->tauf, ORTHOPUS_COMM_RT_TRQ_SCALE);
+            const auto& data = vesc->joint;
+            if(!(data.in_use && data.stream))
+                return;
+            ref.f.ctrl  = __bswap_16(data.ctrl);
+            ref.f.qd    = f_u16(WRAP_DEG360_f(RAD2DEG_f(data.refs.at("position"))), ORTHOPUS_COMM_RT_POS_SCALE); //TOTO: use unsigned to use full scale?
+            ref.f.dqd   = f_u16(RADS2RPM_f(data.refs.at("velocity")), ORTHOPUS_COMM_RT_VEL_SCALE);
+            ref.f.tauf  = f_u16(data.refs.at("effort"), ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
         };
 
         auto writeAux = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
         {
             AuxDataDS ref;
-            ref.f.servo  = f_u16(vesc->sqd, ORTHOPUS_COMM_AUX_SERVO_SCALE);
+            const auto& data = vesc->servo;
+            if(!(data.in_use && data.stream))
+                return;
+            ref.f.servo  = f_u16(data.refs.at("position"), ORTHOPUS_COMM_AUX_SERVO_SCALE);
             _can->write((CAN_AUX_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(AuxDataDS));
         };
 
@@ -128,11 +134,14 @@ bool VESCHost::startStreaming()
         // Force in POS mode on the last meas
         for(auto& [_, it]: _devs)
         {
-            const auto& vesc = std::dynamic_pointer_cast<VESCTarget>(it);
-            vesc->ctrl_word = ORTHOPUS_CTRL_MODE_POS;
-            vesc->qd = vesc->qm;
-            vesc->dqd = 0.0;
-            vesc->tauf = 0.0;
+            auto vesc = std::dynamic_pointer_cast<VESCTarget>(it);
+            auto& data = vesc->joint;
+            if(!(data.in_use && data.stream))
+                return;
+            data.ctrl = ORTHOPUS_CTRL_MODE_POS;
+            data.refs.at("position") = data.meas.at("position");
+            data.refs.at("velocity") = 0.0;
+            data.refs.at("effort")   = 0.0;
             writeRefs(vesc);
         }
         // Then exit
@@ -186,16 +195,24 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
     auto vesc = this->get_peer<orthopus::VESCTarget>(board_id);
     if(!vesc)
         return;
-    
+    auto& jdata = vesc->joint;
+    if(!jdata.in_use)
+        return;
+
     //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
-    vesc->qm     =            u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
-    if(vesc->qm > 180)
-        vesc->qm -= 360;
-    vesc->qm     = DEG2RAD_f(vesc->qm);
-    vesc->dqm    = RPM2RADS_f(u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE));
-    vesc->taum   =            u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
+    jdata.meas.at("position") = u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
+    if(jdata.meas.at("position") > 180)
+        jdata.meas.at("position") -= 360;
+    jdata.meas.at("position") = DEG2RAD_f(jdata.meas.at("position"));
+    jdata.meas.at("velocity") = RPM2RADS_f(u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE));
+    jdata.meas.at("effort")   = u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
     auto status  =       __bswap_16(((uint16_t)data[7]<<8)|data[6]);
-    spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, vesc->qm, vesc->dqm, vesc->taum, status);
+    if(jdata.status != status)
+    {
+        //spdlog::warn("[{}] Status word changed from 0x{:4x} to 0x{:4x}", vesc->id, data.status, status);
+    }
+    jdata.status = status;
+    //spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, vesc->qm, vesc->dqm, vesc->taum, status);
     vesc->_meas_cnt++;
     if(vesc->_meas_last_tp.time_since_epoch().count() > 0)
     {

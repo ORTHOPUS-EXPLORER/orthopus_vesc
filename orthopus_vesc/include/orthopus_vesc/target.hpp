@@ -8,6 +8,8 @@
 namespace orthopus
 {
 
+class VESCHost;
+
 class VESCTarget
 : public vescpp::VESCCustomHw
 {
@@ -15,10 +17,11 @@ public:
     typedef struct
     {
         bool in_use;
+        bool stream;
         uint16_t status;
-        std::unordered_map<std::string, double&> meas;
+        std::unordered_map<std::string, double> meas;
         uint16_t ctrl;
-        std::unordered_map<std::string, double&> refs;
+        std::unordered_map<std::string, double> refs;
     } joint_t;
 
     VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host=nullptr);
@@ -31,50 +34,13 @@ public:
            _meas_dt_var,
            _meas_dt_stddev;
     size_t _meas_cnt;
-    uint16_t ctrl_word,
-             status_word;
-    double qm, dqm, ddqm, taum,
-           qd, dqd, tauf;
-    double sqm{0.5}, // FIXME: Find middle/default value for SERVO joint
-           sqd;
-    std::unordered_map<std::string, joint_t> joints = 
-    {{
-        // DO NOT REORDER. There's currently an evil trick to map the right joints. 
-        // You have been warned
-        {
-            "servo",
-            {
-                false,
-                0x0000,
-                {{
-                    {"position"  , sqm},
-                }},
-                0x0000,
-                {{
-                    {"position"  , sqd},
-                }},
-            },
-        },
-        {
-            "joint",
-            {
-                false,
-                0x0000,
-                {{
-                    {"position"    , qm  },
-                    {"velocity"    , dqm },
-                    {"acceleration", ddqm},
-                    {"effort"      , taum},
-                }},
-                0x0000,
-                {{
-                    {"position" , qd},
-                    {"velocity" , dqd},
-                    {"effort"   , tauf},
-                }},
-            },
-        },
-    }};
+
+protected:
+    friend class orthopus::VESCHost;
+    joint_t joint;
+    joint_t servo;
+public:
+    std::unordered_map<std::string, joint_t&> joints;
 };
 
 }
