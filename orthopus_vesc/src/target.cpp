@@ -43,7 +43,7 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
         }},
         ORTHOPUS_CTRL_MODE_OFF, // Unused
         {{
-            {"position"  , 0.0}, // FIXME: Find middle/default value for SERVO joint
+            {"position"  , 0.5}, // FIXME: Find middle/default value for SERVO joint
         }},
     }
   , joints {{
