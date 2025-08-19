@@ -80,7 +80,7 @@ bool VESCHost::startStreaming()
                 return;
             ref.f.ctrl  = __bswap_16(data.ctrl);
             ref.f.qd    = f_u16(WRAP_DEG360_f(RAD2DEG_f(data.refs.at("position"))), ORTHOPUS_COMM_RT_POS_SCALE); //TOTO: use unsigned to use full scale?
-            ref.f.dqd   = f_u16(RADS2RPM_f(data.refs.at("velocity")), ORTHOPUS_COMM_RT_VEL_SCALE);
+            ref.f.dqd   = f_u16(data.refs.at("velocity"), ORTHOPUS_COMM_RT_VEL_SCALE);
             ref.f.tauf  = f_u16(data.refs.at("effort"), ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
         };
