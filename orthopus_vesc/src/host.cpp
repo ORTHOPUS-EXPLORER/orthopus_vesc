@@ -19,8 +19,8 @@ using namespace std::chrono_literals;
 #ifndef RADS2RPM_f
     #define RADS2RPM_f(rads)  ((rads) * (float)(30.0 / M_PI))
 #endif
-#ifndef WRAP_DEG360_f
-    #define WRAP_DEG360_f(deg) (fmodf((deg), 360.0f) < 0.0f ? fmodf((deg), 360.0f) + 360.0f : fmodf((deg), 360.0f))
+#ifndef WRAP_RAD2PI_f
+    #define WRAP_RAD2PI_f(rad) (fmodf(fmodf((rad), 2.0f * M_PI) + 2.0f * M_PI, 2.0f * M_PI))
 #endif
 namespace orthopus
 {
@@ -79,7 +79,7 @@ bool VESCHost::startStreaming()
             if(!(data.in_use && data.stream))
                 return;
             ref.f.ctrl  = __bswap_16(data.ctrl);
-            ref.f.qd    = f_u16(WRAP_DEG360_f(RAD2DEG_f(data.refs.at("position"))), ORTHOPUS_COMM_RT_POS_SCALE); //TOTO: use unsigned to use full scale?
+            ref.f.qd    = f_u16(WRAP_RAD2PI_f(data.refs.at("position")), ORTHOPUS_COMM_RT_POS_SCALE); //TOTO: use unsigned to use full scale?
             ref.f.dqd   = f_u16(data.refs.at("velocity"), ORTHOPUS_COMM_RT_VEL_SCALE);
             ref.f.tauf  = f_u16(data.refs.at("effort"), ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
@@ -201,10 +201,9 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
 
     //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
     jdata.meas.at("position") = u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
-    if(jdata.meas.at("position") > 180)
-        jdata.meas.at("position") -= 360;
-    jdata.meas.at("position") = DEG2RAD_f(jdata.meas.at("position"));
-    jdata.meas.at("velocity") = RPM2RADS_f(u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE));
+    //if(jdata.meas.at("position") > M_PI)
+    //    jdata.meas.at("position") -= 2.0 * M_PI;
+    jdata.meas.at("velocity") = u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE);
     jdata.meas.at("effort")   = u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
     auto status  =       __bswap_16(((uint16_t)data[7]<<8)|data[6]);
     if(jdata.status != status)
