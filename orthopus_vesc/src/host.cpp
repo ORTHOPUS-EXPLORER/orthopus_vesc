@@ -200,9 +200,10 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
         return;
 
     //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));
-    jdata.meas.at("position") = u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
-    if(jdata.meas.at("position") > M_PI)
-        jdata.meas.at("position") -= 2.0 * M_PI;
+    float raw_position = u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
+    
+    // Wrap to [-π, π] range for ROS convention
+    jdata.meas.at("position") = fmodf(raw_position + M_PI, 2.0f * M_PI) - M_PI;
     jdata.meas.at("velocity") = u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE);
     jdata.meas.at("effort")   = u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
     auto status  =       __bswap_16(((uint16_t)data[7]<<8)|data[6]);
