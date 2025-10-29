@@ -7,7 +7,7 @@ fi
 docker_ct="$1"
 can="$2"
 lcan=vx$can
-rcan=vxcan1
+rcan=vx$can
 
 DOCKERPID=$(docker inspect -f '{{ .State.Pid }}' $docker_ct)
 modprobe can-gw
