@@ -60,6 +60,17 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
     }}
 {
 
+pktAddHandler(::VESC::COMM_PRINT, [this](vescpp::Comm*, const vescpp::VESC::BoardId, std::shared_ptr<vescpp::VESC::Packet>& pkt)
+  {
+    if(auto ppkt = std::dynamic_pointer_cast<vescpp::VESC::packets::Print>(pkt); _print_hdlr && ppkt)
+    {
+        _print_hdlr(ppkt->str);
+        return true;
+    }
+    return false;
+  },
+true);
+
 }
 
 }

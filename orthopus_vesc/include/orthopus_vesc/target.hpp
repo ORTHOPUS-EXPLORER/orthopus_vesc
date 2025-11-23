@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
 #include <unordered_map>
+#include <functional>
 
 #include "vescpp/vescpp/host.hpp"
 #include "vescpp/vescpp/target.hpp"
@@ -41,6 +42,8 @@ protected:
     joint_t servo;
 public:
     std::unordered_map<std::string, joint_t&> joints;
+
+    std::function<void(const std::string&)> _print_hdlr;
 };
 
 }
