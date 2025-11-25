@@ -76,9 +76,9 @@ bool VESCHost::startStreaming()
             if(!(data.in_use && data.stream))
                 return;
             ref.f.ctrl  = __bswap_16(data.ctrl);
-            ref.f.qd    = f_u16(fmodf(data.refs.at("position") + M_PI, 2.0f * M_PI) - M_PI, ORTHOPUS_COMM_RT_POS_SCALE);
-            ref.f.dqd   = f_u16(data.refs.at("velocity"), ORTHOPUS_COMM_RT_VEL_SCALE);
-            ref.f.tauf  = f_u16(data.refs.at("effort"), ORTHOPUS_COMM_RT_TRQ_SCALE);
+            ref.f.qd    = f_u16(fmodf(data.refs.at("position").v + M_PI, 2.0f * M_PI) - M_PI, ORTHOPUS_COMM_RT_POS_SCALE);
+            ref.f.dqd   = f_u16(data.refs.at("velocity").v, ORTHOPUS_COMM_RT_VEL_SCALE);
+            ref.f.tauf  = f_u16(data.refs.at("effort").v, ORTHOPUS_COMM_RT_TRQ_SCALE);
             _can->write((CAN_RT_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(RTDataDS));
         };
 
@@ -88,7 +88,7 @@ bool VESCHost::startStreaming()
             const auto& data = vesc->servo;
             if(!(data.in_use && data.stream))
                 return;
-            ref.f.servo  = f_u16(data.refs.at("position"), ORTHOPUS_COMM_AUX_SERVO_SCALE);
+            ref.f.servo  = f_u16(data.refs.at("position").v, ORTHOPUS_COMM_AUX_SERVO_SCALE);
             _can->write((CAN_AUX_DATA_DOWNSTREAM<<8)|vesc->id, ref.raw, sizeof(AuxDataDS));
         };
 
@@ -136,9 +136,9 @@ bool VESCHost::startStreaming()
             if(!(data.in_use && data.stream))
                 return;
             data.ctrl = ORTHOPUS_CTRL_MODE_POS;
-            data.refs.at("position") = data.meas.at("position");
-            data.refs.at("velocity") = 0.0;
-            data.refs.at("effort")   = 0.0;
+            data.refs.at("position").v = data.meas.at("position").v;
+            data.refs.at("velocity").v = 0.0;
+            data.refs.at("effort").v   = 0.0;
             writeRefs(vesc);
         }
         // Then exit
@@ -192,7 +192,8 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
     auto vesc = this->get_peer<orthopus::VESCTarget>(board_id);
     if(!vesc)
         return;
-    auto& jdata = vesc->joint;
+    
+    auto& jdata = vesc->joint;  // Only handle joint for now, ignore servo
     if(!jdata.in_use)
         return;
 
@@ -200,15 +201,20 @@ void VESCHost::processRTDataUS(vescpp::comm::CAN* can, const vescpp::comm::CAN::
     float raw_position = u16_f(((uint16_t)data[1]<<8)|data[0], ORTHOPUS_COMM_RT_POS_SCALE);
     
     // Wrap to [-π, π] range for ROS convention
-    jdata.meas.at("position") = fmodf(raw_position + M_PI, 2.0f * M_PI) - M_PI;
-    jdata.meas.at("velocity") = u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE);
-    jdata.meas.at("effort")   = u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE);
+    jdata.meas.at("position") = { true, fmodf(raw_position + M_PI, 2.0f * M_PI) - M_PI };
+    jdata.meas.at("velocity") = { true, u16_f(((uint16_t)data[3]<<8)|data[2], ORTHOPUS_COMM_RT_VEL_SCALE) };
+    jdata.meas.at("effort")   = { true, u16_f(((uint16_t)data[5]<<8)|data[4], ORTHOPUS_COMM_RT_TRQ_SCALE) };
     auto status  =       __bswap_16(((uint16_t)data[7]<<8)|data[6]);
     if(jdata.status != status)
+    
     {
+        auto old_st = jdata.status;
+        jdata.status = status;
+        if( jdata.status_changed_cb)
+            jdata.status_changed_cb(jdata, old_st);
         //spdlog::warn("[{}] Status word changed from 0x{:4x} to 0x{:4x}", vesc->id, data.status, status);
     }
-    jdata.status = status;
+    
     //spdlog::trace("[{}] Got Upstream data from {}: Pos: {:.3f}, Vel :{:.3f}, Trq: {:.3f}, Status: 0x{:04X}", id, board_id, vesc->qm, vesc->dqm, vesc->taum, status);
     vesc->_meas_cnt++;
     if(vesc->_meas_last_tp.time_since_epoch().count() > 0)

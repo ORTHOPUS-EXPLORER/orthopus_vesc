@@ -17,60 +17,72 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
   , _meas_dt_var{0}
   , _meas_dt_stddev{0}
   , _meas_cnt{0}
-  , joint {
-        false,
-        false,
-        0xFFFF,
-        {{
-            {"position"    , 0.0},
-            {"velocity"    , 0.0},
-            {"acceleration", 0.0},
-            {"effort"      , 0.0},
-        }},
-        ORTHOPUS_CTRL_MODE_OFF,
-        {{
-            {"position" , 0.0},
-            {"velocity" , 0.0},
-            {"effort"   , 0.0},
-        }},
-    }
-  , servo {
-        false,
-        false,
-        0xFFFF, // Unused
-        {{
-            {"position"  , 0.5}, // FIXME: Find middle/default value for SERVO joint
-        }},
-        ORTHOPUS_CTRL_MODE_OFF, // Unused
-        {{
-            {"position"  , 0.5}, // FIXME: Find middle/default value for SERVO joint
-        }},
-    }
+  
   , joints {{
         // DO NOT REORDER. There's currently an evil trick to map the right joints. 
         // You have been warned
         {
-            "servo", // Will be overwritten with the name of the instanciated joint
-            servo,
-        },
-        {
             "joint", // Will be overwritten with the name of the instanciated joint
-            joint,
-        },
+            false,
+            false,
+            0xFFFF,
+            nullptr,
+            {{
+                {"position"    , { false, 0.0 } },
+                {"velocity"    , { false, 0.0 } },
+                {"acceleration", { false, 0.0 } },
+                {"effort"      , { false, 0.0 } },
+            }},
+            ORTHOPUS_CTRL_MODE_OFF,
+            "off",
+            {{
+                {"mode"     , { false, 0.0 } },
+                {"position" , { false, 0.0 } },
+                {"velocity" , { false, 0.0 } },
+                {"effort"   , { false, 0.0 } },
+            }},
+        }
+        , {
+            "servo", // Will be overwritten with the name of the instanciated joint
+            false,
+            false,
+            0xFFFF, // Unused
+            nullptr, // Unused
+            {{
+                {"position"  , { false, 0.5 } }, // FIXME: Find middle/default value for SERVO joint
+            }},
+            ORTHOPUS_CTRL_MODE_OFF, // Unused
+            "off",
+            {{
+                {"position"  , { false, 0.5 } }, // FIXME: Find middle/default value for SERVO joint
+            }},
+        }
     }}
+  , joint{joints[0]}
+  , servo{joints[1]}
 {
 
-pktAddHandler(::VESC::COMM_PRINT, [this](vescpp::Comm*, const vescpp::VESC::BoardId, std::shared_ptr<vescpp::VESC::Packet>& pkt)
-  {
-    if(auto ppkt = std::dynamic_pointer_cast<vescpp::VESC::packets::Print>(pkt); _print_hdlr && ppkt)
+    pktAddHandler(::VESC::COMM_PRINT, [this](vescpp::Comm*, const vescpp::VESC::BoardId, std::shared_ptr<vescpp::VESC::Packet>& pkt)
     {
-        _print_hdlr(ppkt->str);
-        return true;
-    }
-    return false;
-  },
-true);
+        if(auto ppkt = std::dynamic_pointer_cast<vescpp::VESC::packets::Print>(pkt); _print_hdlr && ppkt)
+        {
+            _print_hdlr(ppkt->str);
+            return true;
+        }
+        return false;
+    },
+    true);
 
+}
+
+VESCTarget::joint_t* VESCTarget::getJoint(const std::string& name)
+{
+    for(auto& j: joints)
+    {
+        if(j.name == name)
+            return &j;
+    }
+    return nullptr;
 }
 
 }
