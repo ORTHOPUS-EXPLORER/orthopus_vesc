@@ -15,13 +15,33 @@ namespace orthopus
     constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE    = 600;// -50->50 Nm
     constexpr unsigned int ORTHOPUS_COMM_AUX_SERVO_SCALE = 1000;
 
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_OFF       = 0x0000; // 0000 0000 0000
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_POS       = 0x0001; // 0000 0000 0001
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_VEL       = 0x0002; // 0000 0000 0010
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_TRQ       = 0x0004; // 0000 0000 0100
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_IMP       = 0x0007; // 0000 0000 0111
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_CST       = 0x000F; // 0000 0000 1111 - custom mode
+    constexpr uint16_t ORTHOPUS_CTRL_MODE_MSK       = 0x000F; // 0000 0000 1111 - Mode mask
 
-    constexpr uint16_t ORTHOPUS_CTRL_MODE_OFF = 0x0000;
-    constexpr uint16_t ORTHOPUS_CTRL_MODE_POS = 0x0001;
-    constexpr uint16_t ORTHOPUS_CTRL_MODE_VEL = 0x0002;
-    constexpr uint16_t ORTHOPUS_CTRL_MODE_TRQ = 0x0004;
-    constexpr uint16_t ORTHOPUS_CTRL_MODE_MSK = 0x000F;
-    constexpr uint16_t ORTHOPUS_CTRL_MODE_ERR = 0x0010;
+    constexpr uint16_t ORTHOPUS_STATE_ERR_NONE      = 0x0000;  // 0000 0001 0000
+    constexpr uint16_t ORTHOPUS_STATE_ERR_POS_STEP  = 0x0010;  // 0000 0001 0000
+    constexpr uint16_t ORTHOPUS_STATE_ERR_VEL_STEP  = 0x0020;  // 0000 0010 0000
+    constexpr uint16_t ORTHOPUS_STATE_ERR_TRQ_STEP  = 0x0040;  // 0000 0100 0000
+    constexpr uint16_t ORTHOPUS_STATE_ERR_OTHER     = 0x0080;  // 0000 1000 0000
+    constexpr uint16_t ORTHOPUS_STATE_ERR_MSK       = 0x00F0;  // 0000 1111 0000 - Error mask
+
+    constexpr uint16_t ORTHOPUS_STATE_INIT          = 0x0000;  // 0000 0000 0000
+    constexpr uint16_t ORTHOPUS_STATE_IDLE          = 0x0100;  // 0001 0000 0000
+    constexpr uint16_t ORTHOPUS_STATE_ENABLE        = 0x0200;  // 0010 0000 0000
+    constexpr uint16_t ORTHOPUS_STATE_HOLD          = 0x0300;  // 0011 0000 0000
+    constexpr uint16_t ORTHOPUS_STATE_BRAKE         = 0x0400;  // 0100 0000 0000
+    constexpr uint16_t ORTHOPUS_STATE_ESTOP         = 0x0500;  // 0101 0000 0000
+    constexpr uint16_t ORTHOPUS_STATE_MSK           = 0x0F00;  // 1111 0000 0000 - State mask
+
+
+    const char* State2Text(uint16_t st);
+    const char* Err2Text(uint16_t st);
+    const char* Mode2Text(uint16_t st);
 
     uint16_t f_u16(float v, unsigned int scale);
     float u16_f(uint16_t v, unsigned int scale);
@@ -56,7 +76,4 @@ namespace orthopus
             uint16_t servo;
         } f;
     } AuxDataDS;
-    
-    uint16_t f_u16(float v, unsigned int scale);
-    float u16_f(uint16_t v, unsigned int scale);
 }
