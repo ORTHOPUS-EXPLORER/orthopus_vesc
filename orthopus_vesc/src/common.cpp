@@ -56,7 +56,7 @@ const char* Mode2Text(uint16_t st)
     if(st == orthopus::ORTHOPUS_CTRL_MODE_CST)
         return "custom";
     else if(st == orthopus::ORTHOPUS_CTRL_MODE_IMP)
-        return "impedence";
+        return "impedance";
     else if(st == orthopus::ORTHOPUS_CTRL_MODE_TRQ)
         return "effort";
     else if(st == orthopus::ORTHOPUS_CTRL_MODE_VEL)
