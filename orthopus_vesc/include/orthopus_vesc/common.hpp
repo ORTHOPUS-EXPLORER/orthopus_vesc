@@ -38,9 +38,9 @@ constexpr uint16_t ORTHOPUS_STATE_BRAKE = 0x0400;   // 0100 0000 0000
 constexpr uint16_t ORTHOPUS_STATE_ESTOP = 0x0500;   // 0101 0000 0000
 constexpr uint16_t ORTHOPUS_STATE_MSK = 0x0F00;     // 1111 0000 0000 - State mask
 
-const char* State2Text(uint16_t st);
-const char* Err2Text(uint16_t st);
-const char* Mode2Text(uint16_t st);
+const char* state_to_text(uint16_t st);
+const char* error_to_text(uint16_t st);
+const char* mode_to_text(uint16_t st);
 
 uint16_t f_u16(float v, unsigned int scale);
 float u16_f(uint16_t v, unsigned int scale);
@@ -91,7 +91,7 @@ typedef union
     uint16_t taum;
     uint16_t status;
   } f;
-} RTDataUS;
+} RTDataUpstream;
 typedef union
 {
   uint8_t raw[8];
@@ -102,7 +102,7 @@ typedef union
     uint16_t tauf;
     uint16_t ctrl;
   } f;
-} RTDataDS;
+} RTDataDownstream;
 typedef union
 {
   uint8_t raw[2];
@@ -110,5 +110,5 @@ typedef union
   {
     uint16_t servo;
   } f;
-} AuxDataDS;
+} AuxDataDownstream;
 }  // namespace orthopus

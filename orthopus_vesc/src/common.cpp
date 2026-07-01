@@ -14,7 +14,7 @@ float u16_f(uint16_t v, unsigned int scale)
   return ((float)(int16_t)(__bswap_16(v))) / (float)scale;
 }
 
-const char* State2Text(uint16_t st)
+const char* state_to_text(uint16_t st)
 {
   st &= orthopus::ORTHOPUS_STATE_MSK;
   if (st == orthopus::ORTHOPUS_STATE_INIT)
@@ -33,7 +33,7 @@ const char* State2Text(uint16_t st)
     return "unknown";
 };
 
-const char* Err2Text(uint16_t st)
+const char* error_to_text(uint16_t st)
 {
   st &= orthopus::ORTHOPUS_STATE_ERR_MSK;
   if (st == orthopus::ORTHOPUS_STATE_ERR_NONE)
@@ -50,7 +50,7 @@ const char* Err2Text(uint16_t st)
     return "unknown";
 }
 
-const char* Mode2Text(uint16_t st)
+const char* mode_to_text(uint16_t st)
 {
   st &= orthopus::ORTHOPUS_CTRL_MODE_MSK;
   if (st == orthopus::ORTHOPUS_CTRL_MODE_CST)
