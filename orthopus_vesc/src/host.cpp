@@ -56,7 +56,9 @@ VESCHost::VESCHost(
     exit(0);
   }
 
-  if (realtime_stream_rate == 0 || auxiliary_gripper_stream_rate == 0 || auxiliary_config_stream_rate == 0)
+  if (
+    realtime_stream_rate == 0 || auxiliary_gripper_stream_rate == 0 ||
+    auxiliary_config_stream_rate == 0)
   {
     spdlog::error(
       "[{}] A stream rate was set to 0 Hz, please check all the stream rates provided", this_id);
@@ -67,20 +69,6 @@ VESCHost::VESCHost(
     VESCHostStreamCallback(VESCHostStreamType::REALTIME, realtime_stream_rate),
     VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate),
     VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate)};
-}
-
-VESCHost::~VESCHost()
-{
-  if (run_tx_th_)
-  {
-    run_tx_th_ = false;
-    tx_th_.join();
-  }
-}
-
-bool VESCHost::start_streaming()
-{
-  run_tx_th_ = true;
 
   tx_th_ = std::thread(
     [this]()
@@ -123,7 +111,15 @@ bool VESCHost::start_streaming()
         orthopus::realtime_write_callback(vesc, can_);
       }
     });
-  return true;
+}
+
+VESCHost::~VESCHost()
+{
+  if (run_tx_th_)
+  {
+    run_tx_th_ = false;
+    tx_th_.join();
+  }
 }
 
 std::shared_ptr<VESCTarget> VESCHost::add_target(vescpp::VESC::BoardId board_id)

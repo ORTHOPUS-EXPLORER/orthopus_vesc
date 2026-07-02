@@ -24,8 +24,6 @@ public:
 
   void send_refs();
 
-  bool start_streaming();
-
   void process_rt_data_us(
     vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8],
     const uint8_t len);
