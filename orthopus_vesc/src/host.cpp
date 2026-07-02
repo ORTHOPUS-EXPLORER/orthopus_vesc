@@ -1,5 +1,7 @@
 #include "orthopus_vesc/host.hpp"
 
+#include <spdlog/spdlog.h>
+
 #include <memory>
 #include <optional>
 
@@ -48,7 +50,7 @@ VESCHost::VESCHost(
   unsigned int auxiliary_config_stream_rate)
 : vescpp::VESCHost(this_id, comm.get()),
   can_(std::dynamic_pointer_cast<vescpp::comm::CAN>(comm)),
-  run_tx_th_(false)
+  run_tx_th_(true)
 {
   if (!can_)
   {
@@ -73,18 +75,22 @@ VESCHost::VESCHost(
   tx_th_ = std::thread(
     [this]()
     {
-      std::optional<vescpp::Time::time_point> next_callback_time;
       while (run_tx_th_)
       {
-        auto now = vescpp::Time::now();
+        auto now = std::chrono::steady_clock::now();
+        std::optional<std::chrono::steady_clock::time_point> next_callback_time;
+
         for (auto& stream_callback : stream_list_)
         {
           auto current_next_call_time = stream_callback.get_next_call_time();
+          spdlog::info("current_next_call_time: [{}] / Now: [{}], executed: [{}]", current_next_call_time.time_since_epoch().count(), now.time_since_epoch().count(), current_next_call_time <= now);
           if (current_next_call_time <= now)
           {
             for (const auto& [board_id, it] : _devs)
             {
+              spdlog::info("EXECUTING CALLBACK...");
               stream_callback.execute(std::dynamic_pointer_cast<VESCTarget>(it), can_);
+              spdlog::info("CALLBACK EXECUTED !");
             }
           }
           // Get updated next call time
@@ -96,7 +102,12 @@ VESCHost::VESCHost(
             next_callback_time = current_next_call_time;
           }
         }
-        std::this_thread::sleep_until(next_callback_time.value());
+        if (next_callback_time.has_value())
+        {
+          spdlog::info("Will sleep, Now: [{}], sleeping until: [{}]", now.time_since_epoch().count(), next_callback_time.value().time_since_epoch().count());
+          std::this_thread::sleep_until(next_callback_time.value());
+          spdlog::info("WOKE UP, READY TO WORK");
+        }
       }
       // Force in POS mode on the last meas
       for (auto& [_, it] : _devs)

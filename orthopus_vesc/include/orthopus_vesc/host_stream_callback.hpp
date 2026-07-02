@@ -27,7 +27,7 @@ class VESCHostStreamCallback
 public:
   VESCHostStreamCallback(VESCHostStreamType type, unsigned int stream_rate);
   [[nodiscard]] VESCHostStreamType get_type() const;
-  [[nodiscard]] vescpp::Time::time_point get_next_call_time() const;
+  [[nodiscard]] std::chrono::steady_clock::time_point get_next_call_time() const;
   void execute(
     const std::shared_ptr<orthopus::VESCTarget>& vesc,
     const std::shared_ptr<vescpp::comm::CAN>& can);
@@ -41,6 +41,6 @@ private:
     const std::shared_ptr<orthopus::VESCTarget>& vesc,
     const std::shared_ptr<vescpp::comm::CAN>& can)>
     callback_;
-  vescpp::Time::time_point next_call_time_;
+  std::chrono::steady_clock::time_point next_call_time_;
 };
 }  // namespace orthopus

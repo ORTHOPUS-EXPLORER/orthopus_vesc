@@ -60,7 +60,8 @@ VESCHostStreamCallback::VESCHostStreamCallback(VESCHostStreamType type, unsigned
 }
 
 [[nodiscard]] VESCHostStreamType VESCHostStreamCallback::get_type() const { return type_; }
-[[nodiscard]] vescpp::Time::time_point VESCHostStreamCallback::get_next_call_time() const
+[[nodiscard]] std::chrono::steady_clock::time_point VESCHostStreamCallback::get_next_call_time()
+  const
 {
   return next_call_time_;
 }
@@ -77,6 +78,6 @@ void VESCHostStreamCallback::execute(
 
 void VESCHostStreamCallback::refresh_next_call_time_()
 {
-  next_call_time_ = vescpp::Time::now() + ms_wait_;
+  next_call_time_ = std::chrono::steady_clock::now() + ms_wait_;
 }
 }  // namespace orthopus
