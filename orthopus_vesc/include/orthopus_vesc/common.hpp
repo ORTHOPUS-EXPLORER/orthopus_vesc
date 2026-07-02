@@ -8,11 +8,15 @@ namespace orthopus
 constexpr vescpp::comm::CAN::Id CAN_RT_DATA_UPSTREAM = 179;
 constexpr vescpp::comm::CAN::Id CAN_RT_DATA_DOWNSTREAM = 180;
 //constexpr vescpp::comm::CAN::Id CAN_RT_DATA_UPSTREAM   = 181;
-constexpr vescpp::comm::CAN::Id CAN_AUX_DATA_DOWNSTREAM = 182;
+constexpr vescpp::comm::CAN::Id CAN_AUX_SERVO_DATA_DOWNSTREAM = 182;
+//constexpr vescpp::comm::CAN::Id CAN_AUX_CONFIG_DATA_UPSTREAM   = 183;
+constexpr vescpp::comm::CAN::Id CAN_AUX_CONFIG_DATA_DOWNSTREAM = 184;
 
 constexpr unsigned int ORTHOPUS_COMM_RT_POS_SCALE = 5000;  //  0->6.28 rad (0->360 deg)
 constexpr unsigned int ORTHOPUS_COMM_RT_VEL_SCALE = 5900;  // -5.5->5.5 rad/S (-50->50 rpm)
 constexpr unsigned int ORTHOPUS_COMM_RT_TRQ_SCALE = 600;   // -50->50 Nm
+constexpr unsigned int ORTHOPUS_COMM_IMPEDANCE_STIFFNESS_SCALE = 600;  // -50->50
+constexpr unsigned int ORTHOPUS_COMM_IMPEDANCE_DAMPING_SCALE = 600;    // -50->50
 constexpr unsigned int ORTHOPUS_COMM_AUX_SERVO_SCALE = 1000;
 
 constexpr uint16_t ORTHOPUS_CTRL_MODE_OFF = 0x0000;  // 0000 0000 0000
@@ -66,9 +70,11 @@ constexpr const char* JointVariableType_to_string(JointVariableType joint_variab
     case JointVariableType::EFFORT:
       return "effort";
   }
+  throw std::out_of_range("Missing case matching for method JointVariableType_to_string.");
 }
 
-constexpr JointVariableType JointVariableType_from_string(const std::string_view& joint_variable_str)
+constexpr JointVariableType JointVariableType_from_string(
+  const std::string_view& joint_variable_str)
 {
   if (joint_variable_str == "acceleration")
     return JointVariableType::ACCELERATION;
@@ -81,7 +87,7 @@ constexpr JointVariableType JointVariableType_from_string(const std::string_view
   throw std::out_of_range("Input string is not a valid JointVariableType");
 }
 
-typedef union
+union RTDataUpstream
 {
   uint8_t raw[8];
   struct
@@ -91,8 +97,8 @@ typedef union
     uint16_t taum;
     uint16_t status;
   } f;
-} RTDataUpstream;
-typedef union
+};
+union RTDataDownstream
 {
   uint8_t raw[8];
   struct
@@ -102,13 +108,22 @@ typedef union
     uint16_t tauf;
     uint16_t ctrl;
   } f;
-} RTDataDownstream;
-typedef union
+};
+union AuxServoDataDownstream
 {
   uint8_t raw[2];
   struct
   {
     uint16_t servo;
   } f;
-} AuxDataDownstream;
+};
+union AuxConfigDataDownstream
+{
+  uint8_t raw[4];
+  struct
+  {
+    uint16_t impedance_control_stiffness;
+    uint16_t impedance_control_damping;
+  } f;
+};
 }  // namespace orthopus

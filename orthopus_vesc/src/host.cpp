@@ -1,6 +1,10 @@
 #include "orthopus_vesc/host.hpp"
 
+#include <memory>
+#include <optional>
+
 #include "orthopus_vesc/common.hpp"
+#include "orthopus_vesc/host_stream_callback.hpp"
 
 using namespace std::chrono_literals;
 
@@ -26,15 +30,22 @@ namespace orthopus
 static std::shared_ptr<VESCHost> vesc_instance{nullptr};
 
 std::shared_ptr<VESCHost> VESCHost::spawn_instance(
-  vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm)
+  vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm,
+  unsigned int realtime_stream_rate, unsigned int auxiliary_gripper_stream_rate,
+  unsigned int auxiliary_config_stream_rate)
 {
-  vesc_instance.reset(new VESCHost(this_id, comm));
+  vesc_instance = std::make_shared<VESCHost>(
+    this_id, comm, realtime_stream_rate, auxiliary_gripper_stream_rate,
+    auxiliary_config_stream_rate);
   return vesc_instance;
 }
 
 std::shared_ptr<VESCHost> VESCHost::get_instance() { return vesc_instance; }
 
-VESCHost::VESCHost(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm)
+VESCHost::VESCHost(
+  vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm,
+  unsigned int realtime_stream_rate, unsigned int auxiliary_gripper_stream_rate,
+  unsigned int auxiliary_config_stream_rate)
 : vescpp::VESCHost(this_id, comm.get()),
   can_(std::dynamic_pointer_cast<vescpp::comm::CAN>(comm)),
   run_tx_th_(false)
@@ -44,6 +55,18 @@ VESCHost::VESCHost(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> 
     spdlog::error("[{}] Only CAN communication is supported right now", this_id);
     exit(0);
   }
+
+  if (realtime_stream_rate == 0 || auxiliary_gripper_stream_rate == 0 || auxiliary_config_stream_rate == 0)
+  {
+    spdlog::error(
+      "[{}] A stream rate was set to 0 Hz, please check all the stream rates provided", this_id);
+    exit(0);
+  }
+
+  stream_list_ = {
+    VESCHostStreamCallback(VESCHostStreamType::REALTIME, realtime_stream_rate),
+    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate),
+    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate)};
 }
 
 VESCHost::~VESCHost()
@@ -57,73 +80,35 @@ VESCHost::~VESCHost()
 
 bool VESCHost::start_streaming()
 {
-  const auto rt_cnt = rt_stream_ms_.count();
-  const auto aux_cnt = aux_stream_ms_.count();
-
-  if (run_tx_th_ || (!rt_cnt && !aux_cnt)) return false;
   run_tx_th_ = true;
 
   tx_th_ = std::thread(
     [this]()
     {
-      const auto rt_cnt = rt_stream_ms_.count();
-      const auto aux_cnt = aux_stream_ms_.count();
-      auto writeRefs = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
-      {
-        RTDataDownstream ref;
-        const auto& data = vesc->joint;
-        if (!(data.in_use && data.stream)) return;
-        ref.f.ctrl = __bswap_16(data.ctrl);
-        ref.f.qd = f_u16(
-          fmodf(data.refs.at("position").v + M_PI, 2.0f * M_PI) - M_PI, ORTHOPUS_COMM_RT_POS_SCALE);
-        ref.f.dqd = f_u16(data.refs.at("velocity").v, ORTHOPUS_COMM_RT_VEL_SCALE);
-        ref.f.tauf = f_u16(data.refs.at("effort").v, ORTHOPUS_COMM_RT_TRQ_SCALE);
-        can_->write((CAN_RT_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(RTDataDownstream));
-      };
-
-      auto writeAux = [this](const std::shared_ptr<orthopus::VESCTarget>& vesc)
-      {
-        AuxDataDownstream ref;
-        const auto& data = vesc->servo;
-        if (!(data.in_use && data.stream)) return;
-        ref.f.servo = f_u16(data.refs.at("position").v, ORTHOPUS_COMM_AUX_SERVO_SCALE);
-        can_->write((CAN_AUX_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxDataDownstream));
-      };
-
-      const auto now = vescpp::Time::now();
-      vescpp::Time::time_point next_rt{now}, next_aux{now};
+      std::optional<vescpp::Time::time_point> next_callback_time;
       while (run_tx_th_)
       {
         auto now = vescpp::Time::now();
-        // RT
-        if (rt_cnt > 0 && now >= next_rt)
+        for (auto& stream_callback : stream_list_)
         {
-          for (const auto& [board_id, it] : _devs)
+          auto current_next_call_time = stream_callback.get_next_call_time();
+          if (current_next_call_time <= now)
           {
-            writeRefs(std::dynamic_pointer_cast<VESCTarget>(it));
-            //spdlog::error("[{}] Push Refs to 0x{:03X}", id, (CAN_RT_DATA_DOWNSTREAM<<8)|it->id);
+            for (const auto& [board_id, it] : _devs)
+            {
+              stream_callback.execute(std::dynamic_pointer_cast<VESCTarget>(it), can_);
+            }
           }
-          next_rt = now + rt_stream_ms_;
-          continue;
-        }
-        // Aux
-        if (aux_cnt > 0 && now >= next_aux)
-        {
-          for (const auto& [board_id, it] : _devs)
+          // Get updated next call time
+          current_next_call_time = stream_callback.get_next_call_time();
+          // Look for the smaller next callback time to wait
+          if (
+            !next_callback_time.has_value() || current_next_call_time < next_callback_time.value())
           {
-            writeAux(std::dynamic_pointer_cast<VESCTarget>(it));
-            //spdlog::error("[{}] Push Aux to 0x{:03X}", id, (CAN_AUX_DATA_DOWNSTREAM<<8)|it->id);
+            next_callback_time = current_next_call_time;
           }
-          next_aux = now + aux_stream_ms_;
-          continue;
         }
-        // FIXME: Sleeping may not be that precise, consider spinning instead
-        if (rt_cnt > 0 && aux_cnt > 0)
-          std::this_thread::sleep_until(next_rt < next_aux ? next_rt : next_aux);
-        else if (rt_cnt > 0)
-          std::this_thread::sleep_until(next_rt);
-        else
-          std::this_thread::sleep_until(next_aux);
+        std::this_thread::sleep_until(next_callback_time.value());
       }
       // Force in POS mode on the last meas
       for (auto& [_, it] : _devs)
@@ -135,24 +120,9 @@ bool VESCHost::start_streaming()
         data.refs.at("position").v = data.meas.at("position").v;
         data.refs.at("velocity").v = 0.0;
         data.refs.at("effort").v = 0.0;
-        writeRefs(vesc);
+        orthopus::realtime_write_callback(vesc, can_);
       }
-      // Then exit
     });
-  return true;
-}
-
-bool VESCHost::set_rt_stream_rate(double rate_hz)
-{
-  if (run_tx_th_ || rate_hz < 0 || rate_hz > 500) return false;
-  rt_stream_ms_ = std::chrono::milliseconds(rate_hz ? (unsigned int)(1000 / rate_hz) : 0);
-  return true;
-}
-
-bool VESCHost::set_aux_stream_rate(double rate_hz)
-{
-  if (run_tx_th_ || rate_hz < 0 || rate_hz > 500) return false;
-  aux_stream_ms_ = std::chrono::milliseconds(rate_hz ? (unsigned int)(1000 / rate_hz) : 0);
   return true;
 }
 
@@ -170,10 +140,10 @@ std::shared_ptr<VESCTarget> VESCHost::add_target(vescpp::VESC::BoardId board_id)
 
 void VESCHost::send_refs()
 {
-  for (auto it = _devs.begin(); it != _devs.end(); it++)
+  for (auto& it : _devs)
   {
-    auto board_id = it->first;
-    RTDataDownstream ref;
+    auto board_id = it.first;
+    RTDataDownstream ref{};
     ref.f.ctrl = __bswap_16(0x1001);
     ref.f.qd = f_u16(1.102, ORTHOPUS_COMM_RT_POS_SCALE);
     ref.f.dqd = f_u16(1.304, ORTHOPUS_COMM_RT_VEL_SCALE);

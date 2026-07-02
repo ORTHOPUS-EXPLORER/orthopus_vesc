@@ -42,6 +42,8 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
               {"velocity", {false, 0.0}},
               {"effort", {false, 0.0}},
             }},
+            0.0,
+            0.0,
           },
           {
             "servo",  // Will be overwritten with the name of the instanciated joint
@@ -77,7 +79,7 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
     true);
 }
 
-VESCTarget::joint_t* VESCTarget::getJoint(const std::string& name)
+VESCTarget::joint_t* VESCTarget::get_joint(const std::string& name)
 {
   for (auto& j : joints)
   {

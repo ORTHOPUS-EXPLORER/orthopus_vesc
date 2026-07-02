@@ -14,12 +14,12 @@ class VESCHost;
 class VESCTarget : public vescpp::VESCCustomHw
 {
 public:
-  typedef struct
+  struct intf_t
   {
     bool in_use;
     double v;
-  } intf_t;
-  typedef struct joint_t
+  };
+  struct joint_t
   {
     std::string name;
     bool in_use;
@@ -30,11 +30,13 @@ public:
     uint16_t ctrl;
     std::string ctrl_mode;
     std::unordered_map<std::string, intf_t> refs;
-  } joint_t;
+    float impedance_control_damping;
+    float impedance_control_stiffness;
+  };
 
   VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host = nullptr);
   // TODO Set as const getter + add proper public methods to interacts
-  joint_t* getJoint(const std::string& name);
+  joint_t* get_joint(const std::string& name);
 
 public:
   // TODO private ALL thoses members
