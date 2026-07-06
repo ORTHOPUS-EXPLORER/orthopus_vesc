@@ -59,9 +59,7 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
             {{
               {"position", {false, 0.5}},  // FIXME: Find middle/default value for SERVO joint
             }},
-          }}},
-  joint{joints[0]},
-  servo{joints[1]}
+          }}}
 {
   pktAddHandler(
     ::VESC::COMM_PRINT,
@@ -79,7 +77,7 @@ VESCTarget::VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host)
     true);
 }
 
-VESCTarget::joint_t* VESCTarget::get_joint(const std::string& name)
+VESCTarget::joint_t* VESCTarget::get_joint_from_name(const std::string& name)
 {
   for (auto& j : joints)
   {
@@ -87,5 +85,9 @@ VESCTarget::joint_t* VESCTarget::get_joint(const std::string& name)
   }
   return nullptr;
 }
+
+const VESCTarget::joint_t& VESCTarget::get_joint() const { return joints[0]; }
+VESCTarget::joint_t& VESCTarget::acquire_joint() { return joints[0]; }
+const VESCTarget::joint_t& VESCTarget::get_servo() const { return joints[1]; }
 
 }  // namespace orthopus

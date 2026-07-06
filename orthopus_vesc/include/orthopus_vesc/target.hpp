@@ -36,8 +36,11 @@ public:
 
   VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host = nullptr);
   // TODO Set as const getter + add proper public methods to interacts
-  joint_t* get_joint(const std::string& name);
+  joint_t* get_joint_from_name(const std::string& name);
 
+  const joint_t &get_joint() const;
+  joint_t &acquire_joint();
+  const joint_t &get_servo() const;
 public:
   // TODO private ALL thoses members
   std::function<void(const std::string&)> print_hdlr_;
@@ -47,8 +50,6 @@ public:
   size_t _meas_cnt;
 
   std::array<joint_t, 2> joints;
-  joint_t& joint;
-  joint_t& servo;
 };
 
 }  // namespace orthopus

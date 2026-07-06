@@ -108,11 +108,7 @@ VESCHost::VESCHost(
       for (auto& [_, it] : _devs)
       {
         auto vesc = std::dynamic_pointer_cast<VESCTarget>(it);
-        if (!vesc || !can_)
-        {
-          return;
-        }
-        auto& data = vesc->joint;
+        auto& data = vesc->acquire_joint();
         if (!(data.in_use && data.stream)) return;
         data.ctrl = ORTHOPUS_CTRL_MODE_POS;
         data.refs.at("position").v = data.meas.at("position").v;
@@ -170,7 +166,7 @@ void VESCHost::process_rt_data_us(
   auto vesc = this->get_peer<orthopus::VESCTarget>(board_id);
   if (!vesc) return;
 
-  auto& jdata = vesc->joint;  // Only handle joint for now, ignore servo
+  auto& jdata = vesc->acquire_joint();  // Only handle joint for now, ignore servo
   if (!jdata.in_use) return;
 
   //spdlog::trace("[{}] Got Upstream data from {}: {:np}", id, board_id, spdlog::to_hex(data,data+len));

@@ -9,7 +9,7 @@ void realtime_write_callback(
   const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
 {
   RTDataDownstream ref{};
-  const auto& data = vesc->joint;
+  const auto& data = vesc->get_joint();
   if (!(data.in_use && data.stream)) return;
   ref.f.ctrl = __bswap_16(data.ctrl);
   ref.f.qd =
@@ -23,7 +23,7 @@ void auxiliary_servo_write_callback(
   const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
 {
   AuxServoDataDownstream ref{};
-  const auto& data = vesc->servo;
+  const auto& data = vesc->get_servo();
   if (!(data.in_use && data.stream)) return;
   ref.f.servo = f_u16(data.refs.at("position").v, ORTHOPUS_COMM_AUX_SERVO_SCALE);
   can->write(
@@ -34,7 +34,7 @@ void auxiliary_config_write_callback(
   const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
 {
   AuxConfigDataDownstream ref{};
-  const auto& data = vesc->joint;
+  const auto& data = vesc->get_joint();
   if (!(data.in_use && data.stream)) return;
   ref.f.impedance_control_damping =
     f_u16(data.impedance_control_damping, ORTHOPUS_COMM_IMPEDANCE_DAMPING_SCALE);
