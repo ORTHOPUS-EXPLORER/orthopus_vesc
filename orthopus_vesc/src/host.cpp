@@ -7,7 +7,6 @@
 
 #include "orthopus_vesc/common.hpp"
 #include "orthopus_vesc/host_stream_callback.hpp"
-
 using namespace std::chrono_literals;
 
 #ifdef M_PI
@@ -83,14 +82,11 @@ VESCHost::VESCHost(
         for (auto& stream_callback : stream_list_)
         {
           auto current_next_call_time = stream_callback.get_next_call_time();
-          spdlog::info("current_next_call_time: [{}] / Now: [{}], executed: [{}]", current_next_call_time.time_since_epoch().count(), now.time_since_epoch().count(), current_next_call_time <= now);
           if (current_next_call_time <= now)
           {
             for (const auto& [board_id, it] : _devs)
             {
-              spdlog::info("EXECUTING CALLBACK...");
               stream_callback.execute(std::dynamic_pointer_cast<VESCTarget>(it), can_);
-              spdlog::info("CALLBACK EXECUTED !");
             }
           }
           // Get updated next call time
@@ -104,15 +100,18 @@ VESCHost::VESCHost(
         }
         if (next_callback_time.has_value())
         {
-          spdlog::info("Will sleep, Now: [{}], sleeping until: [{}]", now.time_since_epoch().count(), next_callback_time.value().time_since_epoch().count());
           std::this_thread::sleep_until(next_callback_time.value());
-          spdlog::info("WOKE UP, READY TO WORK");
         }
       }
       // Force in POS mode on the last meas
+      // Note: I suspect it's never called because of vesc already freed before getting there
       for (auto& [_, it] : _devs)
       {
         auto vesc = std::dynamic_pointer_cast<VESCTarget>(it);
+        if (!vesc || !can_)
+        {
+          return;
+        }
         auto& data = vesc->joint;
         if (!(data.in_use && data.stream)) return;
         data.ctrl = ORTHOPUS_CTRL_MODE_POS;
@@ -133,16 +132,19 @@ VESCHost::~VESCHost()
   }
 }
 
-std::shared_ptr<VESCTarget> VESCHost::add_target(vescpp::VESC::BoardId board_id)
+std::shared_ptr<VESCTarget> VESCHost::add_target(
+  vescpp::VESC::BoardId board_id, bool check_firmware_version)
 {
   auto can_id = (CAN_RT_DATA_UPSTREAM << 8) | board_id;
   spdlog::debug(
-    "[{}<={}] Add CAN Handler 0x{:04X} to receive CAN_RT_DATA_UPSTREAM", id, board_id, can_id);
+    "[{}<={}] Add CAN Handler 0x{:04X} to receive CAN_RT_DATA_UPSTREAM (check firmware ? [{}])", id,
+    board_id, can_id, check_firmware_version);
   can_->_can_handlers.emplace_back(
-    can_id, std::bind(
-              &VESCHost::process_rt_data_us, this, std::placeholders::_1, std::placeholders::_2,
-              std::placeholders::_3, std::placeholders::_4));
-  return this->add_peer<orthopus::VESCTarget>(board_id, ::VESC::HW_TYPE_CUSTOM_MODULE);
+    can_id, [this](
+              vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t* data,
+              uint8_t len) { process_rt_data_us(can, can_id, data, len); });
+  return this->add_peer<orthopus::VESCTarget>(
+    board_id, ::VESC::HW_TYPE_CUSTOM_MODULE, check_firmware_version);
 }
 
 void VESCHost::send_refs()
@@ -160,8 +162,7 @@ void VESCHost::send_refs()
 }
 
 void VESCHost::process_rt_data_us(
-  vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8],
-  const uint8_t len)
+  vescpp::comm::CAN* can, vescpp::comm::CAN::Id can_id, const uint8_t data[8], uint8_t len)
 {
   const auto now = vescpp::Time::now();
   //RTDataUpstream meas;

@@ -20,13 +20,13 @@ public:
     unsigned int auxiliary_config_stream_rate);
   static std::shared_ptr<VESCHost> get_instance();
 
-  std::shared_ptr<VESCTarget> add_target(vescpp::VESC::BoardId board_id);
+  std::shared_ptr<VESCTarget> add_target(
+    vescpp::VESC::BoardId board_id, bool check_firmware_version);
 
   void send_refs();
 
   void process_rt_data_us(
-    vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8],
-    const uint8_t len);
+    vescpp::comm::CAN* can, vescpp::comm::CAN::Id can_id, const uint8_t data[8], uint8_t len);
   void print_stats();
 
 private:

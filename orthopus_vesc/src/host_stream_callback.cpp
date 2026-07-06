@@ -4,7 +4,7 @@
 
 namespace orthopus
 {
-// Can write callbacks
+// CAN writer callbacks
 void realtime_write_callback(
   const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
 {
@@ -52,10 +52,13 @@ VESCHostStreamCallback::VESCHostStreamCallback(VESCHostStreamType type, unsigned
   {
     case orthopus::VESCHostStreamType::REALTIME:
       callback_ = realtime_write_callback;
+      break;
     case orthopus::VESCHostStreamType::AUXILIARY_GRIPPER:
       callback_ = auxiliary_servo_write_callback;
+      break;
     case orthopus::VESCHostStreamType::AUXILIARY_CONFIG:
       callback_ = auxiliary_config_write_callback;
+      break;
   }
 }
 
@@ -69,7 +72,7 @@ VESCHostStreamCallback::VESCHostStreamCallback(VESCHostStreamType type, unsigned
 void VESCHostStreamCallback::execute(
   const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
 {
-  if (callback_)
+  if (callback_ && vesc && can)
   {
     callback_(vesc, can);
     refresh_next_call_time_();

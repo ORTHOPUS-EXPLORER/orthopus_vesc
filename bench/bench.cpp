@@ -73,7 +73,7 @@ int main(int argc, char**argv)
         {
             auto& vesc = vesc_hosts.emplace_back(new orthopus::VESCHost(board_id, can_comm));
             for(const auto& id: target_ids)
-                vesc->add_target(id&0xFF);
+                vesc->add_target(id&0xFF, true);
         }
         run_tx_th = true;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
