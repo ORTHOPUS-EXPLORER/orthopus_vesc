@@ -54,7 +54,8 @@ enum class JointVariableType
   POSITION,
   VELOCITY,
   ACCELERATION,
-  EFFORT
+  EFFORT,
+  IMPEDANCE
 };
 
 constexpr const char* JointVariableType_to_string(JointVariableType joint_variable_type)
@@ -69,6 +70,8 @@ constexpr const char* JointVariableType_to_string(JointVariableType joint_variab
       return "acceleration";
     case JointVariableType::EFFORT:
       return "effort";
+    case JointVariableType::IMPEDANCE:
+      return "impedance";
   }
   throw std::out_of_range("Missing case matching for method JointVariableType_to_string.");
 }
@@ -84,6 +87,8 @@ constexpr JointVariableType JointVariableType_from_string(
     return JointVariableType::POSITION;
   else if (joint_variable_str == "velocity")
     return JointVariableType::VELOCITY;
+  else if (joint_variable_str == "impedance")
+    return JointVariableType::IMPEDANCE;
   throw std::out_of_range("Input string is not a valid JointVariableType");
 }
 

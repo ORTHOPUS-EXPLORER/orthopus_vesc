@@ -35,11 +35,11 @@ void auxiliary_config_write_callback(
 {
   AuxConfigDataDownstream ref{};
   const auto& data = vesc->get_joint();
-  if (!(data.in_use && data.stream)) return;
+  if (!(data.in_use && data.stream && data.impedance_control_damping.has_value() && data.impedance_control_stiffness.has_value())) return;
   ref.f.impedance_control_damping =
-    f_u16(data.impedance_control_damping, ORTHOPUS_COMM_IMPEDANCE_DAMPING_SCALE);
+    f_u16(data.impedance_control_damping.value(), ORTHOPUS_COMM_IMPEDANCE_DAMPING_SCALE);
   ref.f.impedance_control_stiffness =
-    f_u16(data.impedance_control_stiffness, ORTHOPUS_COMM_IMPEDANCE_STIFFNESS_SCALE);
+    f_u16(data.impedance_control_stiffness.value(), ORTHOPUS_COMM_IMPEDANCE_STIFFNESS_SCALE);
   can->write(
     (CAN_AUX_CONFIG_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxConfigDataDownstream));
 };

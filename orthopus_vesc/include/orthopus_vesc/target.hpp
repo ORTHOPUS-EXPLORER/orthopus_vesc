@@ -1,5 +1,6 @@
 #pragma once
 #include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
 
@@ -30,8 +31,8 @@ public:
     uint16_t ctrl;
     std::string ctrl_mode;
     std::unordered_map<std::string, intf_t> refs;
-    float impedance_control_damping;
-    float impedance_control_stiffness;
+    std::optional<float> impedance_control_damping;
+    std::optional<float> impedance_control_stiffness;
   };
 
   VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host = nullptr);
