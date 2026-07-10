@@ -42,6 +42,7 @@ public:
   const joint_t &get_joint() const;
   joint_t &acquire_joint();
   const joint_t &get_servo() const;
+  joint_t &acquire_servo();
 public:
   // TODO private ALL thoses members
   std::function<void(const std::string&)> print_hdlr_;

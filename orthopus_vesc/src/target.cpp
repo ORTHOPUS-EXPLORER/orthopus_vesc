@@ -87,5 +87,6 @@ VESCTarget::joint_t* VESCTarget::get_joint_from_name(const std::string& name)
 const VESCTarget::joint_t& VESCTarget::get_joint() const { return joints[0]; }
 VESCTarget::joint_t& VESCTarget::acquire_joint() { return joints[0]; }
 const VESCTarget::joint_t& VESCTarget::get_servo() const { return joints[1]; }
+VESCTarget::joint_t& VESCTarget::acquire_servo() { return joints[1]; }
 
 }  // namespace orthopus
