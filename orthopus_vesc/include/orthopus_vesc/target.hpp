@@ -1,7 +1,8 @@
 #pragma once
+#include <functional>
+#include <optional>
 #include <string>
 #include <unordered_map>
-#include <functional>
 
 #include "vescpp/vescpp/host.hpp"
 #include "vescpp/vescpp/target.hpp"
@@ -11,47 +12,46 @@ namespace orthopus
 
 class VESCHost;
 
-class VESCTarget
-: public vescpp::VESCCustomHw
+class VESCTarget : public vescpp::VESCCustomHw
 {
 public:
-    typedef struct
-    {
-        bool in_use;
-        double    v;
-    } intf_t;
-    typedef struct joint_t
-    {
-        std::string name;
-        bool in_use;
-        bool stream;
-        uint16_t status;
-        std::function<void(struct joint_t&, uint16_t)> status_changed_cb;
-        std::unordered_map<std::string, intf_t> meas;
-        uint16_t ctrl;
-        std::string ctrl_mode;
-        std::unordered_map<std::string, intf_t> refs;
-    } joint_t;
+  struct intf_t
+  {
+    bool in_use;
+    double v;
+  };
+  struct joint_t
+  {
+    std::string name;
+    bool in_use;
+    bool stream;
+    uint16_t status;
+    std::function<void(struct joint_t&, uint16_t)> status_changed_cb;
+    std::unordered_map<std::string, intf_t> meas;
+    uint16_t ctrl;
+    std::string ctrl_mode;
+    std::unordered_map<std::string, intf_t> refs;
+    std::optional<float> impedance_control_damping;
+    std::optional<float> impedance_control_stiffness;
+  };
 
-    VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host=nullptr);
-    vescpp::Time::time_point _meas_last_tp;
-    double _meas_dt_last,
-           _meas_dt_min,
-           _meas_dt_max,
-           _meas_dt_avg,
-           _meas_dt_vvar,
-           _meas_dt_var,
-           _meas_dt_stddev;
-    size_t _meas_cnt;
+  VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host = nullptr);
+  // TODO Set as const getter + add proper public methods to interacts
+  joint_t* get_joint_from_name(const std::string& name);
 
-    joint_t* getJoint(const std::string& name);
-
-    std::array<joint_t,2> joints;
-    joint_t& joint;
-    joint_t& servo;
-
+  const joint_t &get_joint() const;
+  joint_t &acquire_joint();
+  const joint_t &get_servo() const;
+  joint_t &acquire_servo();
 public:
-    std::function<void(const std::string&)> _print_hdlr;
+  // TODO private ALL thoses members
+  std::function<void(const std::string&)> print_hdlr_;
+  vescpp::Time::time_point _meas_last_tp;
+  double _meas_dt_last, _meas_dt_min, _meas_dt_max, _meas_dt_avg, _meas_dt_vvar, _meas_dt_var,
+    _meas_dt_stddev;
+  size_t _meas_cnt;
+
+  std::array<joint_t, 2> joints;
 };
 
-}
+}  // namespace orthopus

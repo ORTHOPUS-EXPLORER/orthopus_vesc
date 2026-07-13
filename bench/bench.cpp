@@ -73,7 +73,7 @@ int main(int argc, char**argv)
         {
             auto& vesc = vesc_hosts.emplace_back(new orthopus::VESCHost(board_id, can_comm));
             for(const auto& id: target_ids)
-                vesc->addTarget(id&0xFF);
+                vesc->add_target(id&0xFF, true);
         }
         run_tx_th = true;
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
@@ -83,11 +83,11 @@ int main(int argc, char**argv)
             {
                 vescpp::Time::time_point t_st = vescpp::Time::now();
                 for(auto& d: vesc_hosts)
-                    d->sendRefs();
+                    d->send_refs();
                 std::this_thread::sleep_until(t_st + std::chrono::milliseconds(host_delay));
             }
             for(auto& d: vesc_hosts)
-                d->printStats();
+                d->print_stats();
         }));
         for(auto& vh: vesc_hosts)
         {
@@ -113,7 +113,7 @@ int main(int argc, char**argv)
             {
                 vescpp::Time::time_point t_st = vescpp::Time::now();
                 for(auto& d: vesc_devs)
-                    d->sendMeas();
+                    d->send_measures();
                 std::this_thread::sleep_until(t_st + std::chrono::milliseconds(devs_delay));
             }
         }));

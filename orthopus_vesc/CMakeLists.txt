@@ -6,6 +6,7 @@ add_library(${PROJECT_NAME} STATIC
   src/common.cpp
   src/device.cpp
   src/host.cpp
+  src/host_stream_callback.cpp
   src/target.cpp
 )
 

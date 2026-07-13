@@ -5,16 +5,18 @@
 namespace orthopus
 {
 
-class VESCDevice
-: public vescpp::VESCDevice
+class VESCDevice : public vescpp::VESCDevice
 {
 public:
-    VESCDevice(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> com);
+  VESCDevice(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> com);
 
-    void processRTDataDS(vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8], const uint8_t len);
-    void sendMeas();
+  void process_rt_data_downstream(
+    vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t data[8],
+    const uint8_t len);
+  void send_measures();
+
 private:
-    std::shared_ptr<vescpp::comm::CAN> _can;
+  std::shared_ptr<vescpp::comm::CAN> can_;
 };
 
-}
+}  // namespace orthopus
