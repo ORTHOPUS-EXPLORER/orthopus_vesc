@@ -33,11 +33,11 @@ static std::shared_ptr<VESCHost> vesc_instance{nullptr};
 std::shared_ptr<VESCHost> VESCHost::spawn_instance(
   vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm,
   unsigned int realtime_stream_rate, unsigned int auxiliary_gripper_stream_rate,
-  unsigned int auxiliary_config_stream_rate)
+  unsigned int auxiliary_config_stream_rate, bool simulate_response)
 {
   vesc_instance = std::make_shared<VESCHost>(
     this_id, comm, realtime_stream_rate, auxiliary_gripper_stream_rate,
-    auxiliary_config_stream_rate);
+    auxiliary_config_stream_rate, simulate_response);
   return vesc_instance;
 }
 
@@ -46,10 +46,11 @@ std::shared_ptr<VESCHost> VESCHost::get_instance() { return vesc_instance; }
 VESCHost::VESCHost(
   vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm,
   unsigned int realtime_stream_rate, unsigned int auxiliary_gripper_stream_rate,
-  unsigned int auxiliary_config_stream_rate)
+  unsigned int auxiliary_config_stream_rate, bool simulate_response)
 : vescpp::VESCHost(this_id, comm.get()),
   can_(std::dynamic_pointer_cast<vescpp::comm::CAN>(comm)),
-  run_tx_th_(true)
+  run_tx_th_(true),
+  simulate_response_(simulate_response)
 {
   if (!can_)
   {
@@ -67,9 +68,9 @@ VESCHost::VESCHost(
   }
 
   stream_list_ = {
-    VESCHostStreamCallback(VESCHostStreamType::REALTIME, realtime_stream_rate),
-    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate),
-    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate)};
+    VESCHostStreamCallback(VESCHostStreamType::REALTIME, realtime_stream_rate, simulate_response),
+    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate, simulate_response),
+    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate, simulate_response)};
 
   tx_th_ = std::thread(
     [this]()
@@ -114,7 +115,7 @@ VESCHost::VESCHost(
         data.refs.at("position").v = data.meas.at("position").v;
         data.refs.at("velocity").v = 0.0;
         data.refs.at("effort").v = 0.0;
-        orthopus::realtime_write_callback(vesc, can_);
+        orthopus::realtime_write_callback(vesc, can_, simulate_response_);
       }
     });
 }

@@ -6,7 +6,8 @@ namespace orthopus
 {
 // CAN writer callbacks
 void realtime_write_callback(
-  const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
+  const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can,
+  bool simulate_response)
 {
   RTDataDownstream ref{};
   const auto& data = vesc->get_joint();
@@ -17,10 +18,18 @@ void realtime_write_callback(
   ref.f.dqd = f_u16(data.refs.at("velocity").v, ORTHOPUS_COMM_RT_VEL_SCALE);
   ref.f.tauf = f_u16(data.refs.at("effort").v, ORTHOPUS_COMM_RT_TRQ_SCALE);
   can->write((CAN_RT_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(RTDataDownstream));
+  if (simulate_response)
+  {
+    auto& data = vesc->acquire_joint();
+    data.meas.at("position").v = data.refs.at("position").v;
+    data.meas.at("velocity").v = data.refs.at("velocity").v;
+    data.meas.at("effort").v = data.refs.at("effort").v;
+  }
 };
 
 void auxiliary_servo_write_callback(
-  const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
+  const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can,
+  bool simulate_response)
 {
   AuxServoDataDownstream ref{};
   const auto& data = vesc->get_servo();
@@ -28,14 +37,22 @@ void auxiliary_servo_write_callback(
   ref.f.servo = f_u16(data.refs.at("position").v, ORTHOPUS_COMM_AUX_SERVO_SCALE);
   can->write(
     (CAN_AUX_SERVO_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxServoDataDownstream));
+  if (simulate_response)
+  {
+    auto& data = vesc->acquire_servo();
+    data.meas.at("position").v = data.refs.at("position").v;
+  }
 };
 
 void auxiliary_config_write_callback(
-  const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can)
+  const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can,
+  [[maybe_unused]] bool simulate_response)
 {
   AuxConfigDataDownstream ref{};
   const auto& data = vesc->get_joint();
-  if (!(data.in_use && data.stream && data.impedance_control_damping.has_value() && data.impedance_control_stiffness.has_value())) return;
+  if (!(data.in_use && data.stream && data.impedance_control_damping.has_value() &&
+        data.impedance_control_stiffness.has_value()))
+    return;
   ref.f.impedance_control_damping =
     f_u16(data.impedance_control_damping.value(), ORTHOPUS_COMM_IMPEDANCE_DAMPING_SCALE);
   ref.f.impedance_control_stiffness =
@@ -45,8 +62,11 @@ void auxiliary_config_write_callback(
 };
 // Can write callbacks - end
 
-VESCHostStreamCallback::VESCHostStreamCallback(VESCHostStreamType type, unsigned int stream_rate)
-: type_(type), ms_wait_(std::chrono::milliseconds((unsigned int)(1000 / stream_rate)))
+VESCHostStreamCallback::VESCHostStreamCallback(
+  VESCHostStreamType type, unsigned int stream_rate, bool simulate_response)
+: type_(type),
+  ms_wait_(std::chrono::milliseconds((unsigned int)(1000 / stream_rate))),
+  simulate_response_(simulate_response)
 {
   switch (type)
   {
@@ -74,7 +94,7 @@ void VESCHostStreamCallback::execute(
 {
   if (callback_ && vesc && can)
   {
-    callback_(vesc, can);
+    callback_(vesc, can, simulate_response_);
     refresh_next_call_time_();
   }
 }

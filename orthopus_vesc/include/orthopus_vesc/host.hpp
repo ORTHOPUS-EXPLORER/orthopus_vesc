@@ -12,12 +12,12 @@ public:
   VESCHost(
     vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm,
     unsigned int realtime_stream_rate, unsigned int auxiliary_gripper_stream_rate,
-    unsigned int auxiliary_config_stream_rate);
+    unsigned int auxiliary_config_stream_rate, bool simulate_response = false);
   virtual ~VESCHost();
   static std::shared_ptr<VESCHost> spawn_instance(
     vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Comm> comm,
     unsigned int realtime_stream_rate, unsigned int auxiliary_gripper_stream_rate,
-    unsigned int auxiliary_config_stream_rate);
+    unsigned int auxiliary_config_stream_rate, bool simulate_response = false);
   static std::shared_ptr<VESCHost> get_instance();
 
   std::shared_ptr<VESCTarget> add_target(
@@ -34,6 +34,7 @@ private:
   std::atomic_bool run_tx_th_;
   std::thread tx_th_;
   std::vector<VESCHostStreamCallback> stream_list_;
+  bool simulate_response_;
 };
 
 }  // namespace orthopus
