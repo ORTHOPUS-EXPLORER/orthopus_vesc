@@ -2,12 +2,19 @@
 
 #include <byteswap.h>
 
+#include <algorithm>
+#include <cstdint>
 #include <stdexcept>
 
 namespace orthopus
 {
 
-uint16_t f_u16(float v, unsigned int scale) { return __bswap_16((int16_t)(v * scale)); }
+uint16_t f_u16(float v, unsigned int scale)
+{
+  float scaled = v * (float)scale;
+  scaled = std::clamp(scaled, (float)INT16_MIN, (float)INT16_MAX);
+  return __bswap_16((int16_t)scaled);
+}
 
 float u16_f(uint16_t v, unsigned int scale)
 {
