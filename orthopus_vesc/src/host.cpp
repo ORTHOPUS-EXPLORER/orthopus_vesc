@@ -4,6 +4,7 @@
 
 #include <memory>
 #include <optional>
+#include <stdexcept>
 
 #include "orthopus_vesc/common.hpp"
 #include "orthopus_vesc/host_stream_callback.hpp"
@@ -55,7 +56,7 @@ VESCHost::VESCHost(
   if (!can_)
   {
     spdlog::error("[{}] Only CAN communication is supported right now", this_id);
-    exit(0);
+    throw std::runtime_error("VESCHost: only CAN communication is supported right now");
   }
 
   if (
@@ -64,7 +65,7 @@ VESCHost::VESCHost(
   {
     spdlog::error(
       "[{}] A stream rate was set to 0 Hz, please check all the stream rates provided", this_id);
-    exit(0);
+    throw std::runtime_error("VESCHost: a stream rate was set to 0 Hz, please check all the stream rates provided");
   }
 
   stream_list_ = {
