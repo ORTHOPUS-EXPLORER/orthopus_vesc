@@ -1,5 +1,7 @@
 #include "orthopus_vesc/device.hpp"
 
+#include <stdexcept>
+
 #include "orthopus_vesc/common.hpp"
 
 using namespace std::chrono_literals;
@@ -13,7 +15,7 @@ VESCDevice::VESCDevice(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Co
   if (!can_)
   {
     spdlog::error("[{}] Only CAN communication is supported right now", this_id);
-    exit(0);
+    throw std::runtime_error("VESCDevice: only CAN communication is supported right now");
   }
   can_->_can_handlers.emplace_back(
     (CAN_RT_DATA_DOWNSTREAM << 8) | id,
