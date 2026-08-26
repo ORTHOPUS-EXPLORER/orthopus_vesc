@@ -1,4 +1,6 @@
 #pragma once
+#include <atomic>
+#include <chrono>
 #include <functional>
 #include <optional>
 #include <string>
@@ -33,16 +35,22 @@ public:
     std::unordered_map<std::string, intf_t> refs;
     std::optional<float> impedance_control_damping;
     std::optional<float> impedance_control_stiffness;
+    // Watchdog: last_command_timepoint is updated by VESCInterface::write() every ros2_control update cycle;
+    // the transmitter thread (host_stream_callback) forces a stationary state if it goes stale, so a hung
+    // update loop can't leave the motor streaming its last command forever.
+    std::optional<std::atomic<vescpp::Time::time_point>> last_command_timepoint;
+    std::chrono::milliseconds command_watchdog_timeout{200};
   };
 
   VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host = nullptr);
   // TODO Set as const getter + add proper public methods to interacts
   joint_t* get_joint_from_name(const std::string& name);
 
-  const joint_t &get_joint() const;
-  joint_t &acquire_joint();
-  const joint_t &get_servo() const;
-  joint_t &acquire_servo();
+  const joint_t& get_joint() const;
+  joint_t& acquire_joint();
+  const joint_t& get_servo() const;
+  joint_t& acquire_servo();
+
 public:
   // TODO private ALL thoses members
   std::function<void(const std::string&)> print_hdlr_;

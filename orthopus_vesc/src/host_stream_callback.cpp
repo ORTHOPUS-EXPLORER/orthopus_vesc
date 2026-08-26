@@ -12,11 +12,32 @@ void realtime_write_callback(
   RTDataDownstream ref{};
   const auto& data = vesc->get_joint();
   if (!(data.in_use && data.stream)) return;
-  ref.f.ctrl = __bswap_16(data.ctrl);
-  ref.f.qd =
-    f_u16(fmodf(data.refs.at("position").v + M_PI, 2.0f * M_PI) - M_PI, ORTHOPUS_COMM_RT_POS_SCALE);
-  ref.f.dqd = f_u16(data.refs.at("velocity").v, ORTHOPUS_COMM_RT_VEL_SCALE);
-  ref.f.tauf = f_u16(data.refs.at("effort").v, ORTHOPUS_COMM_RT_TRQ_SCALE);
+
+  // Watchdog: if VESCInterface::write() hasn't refreshed last_cmd_timepoint recently (ros2_control
+  // update loop stalled/crashed), forget the last real command and force a stationary state instead.
+  const bool stale = data.last_command_timepoint.has_value() &&
+                     (vescpp::Time::now() - data.last_command_timepoint.value().load()) >
+                       data.command_watchdog_timeout;
+
+  uint16_t ctrl = data.ctrl;
+  double pos_ref = data.refs.at("position").v;
+  double vel_ref = data.refs.at("velocity").v;
+  double trq_ref = data.refs.at("effort").v;
+  if (stale)
+  {
+    ctrl = (ctrl & ~orthopus::ORTHOPUS_CTRL_MODE_MSK) | orthopus::ORTHOPUS_CTRL_MODE_OFF;
+    vel_ref = 0.0;
+    trq_ref = 0.0;
+    pos_ref = data.meas.at("position").v;
+    spdlog::warn(
+      "[{}] Command watchdog timeout: no write() in over {}ms, forcing safe state", vesc->id,
+      data.command_watchdog_timeout.count());
+  }
+
+  ref.f.ctrl = __bswap_16(ctrl);
+  ref.f.qd = f_u16(fmodf(pos_ref + M_PI, 2.0f * M_PI) - M_PI, ORTHOPUS_COMM_RT_POS_SCALE);
+  ref.f.dqd = f_u16(vel_ref, ORTHOPUS_COMM_RT_VEL_SCALE);
+  ref.f.tauf = f_u16(trq_ref, ORTHOPUS_COMM_RT_TRQ_SCALE);
   can->write((CAN_RT_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(RTDataDownstream));
   if (simulate_response)
   {
