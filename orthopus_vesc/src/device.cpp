@@ -37,7 +37,10 @@ void VESCDevice::send_measures()
   meas.f.qm = f_u16(0.102, ORTHOPUS_COMM_RT_POS_SCALE);
   meas.f.dqm = f_u16(0.304, ORTHOPUS_COMM_RT_VEL_SCALE);
   meas.f.taum = f_u16(0.506, ORTHOPUS_COMM_RT_TRQ_SCALE);
-  can_->write((CAN_RT_DATA_UPSTREAM << 8) | id, meas.raw, sizeof(RTDataUpstream));
+  if (!can_->write((CAN_RT_DATA_UPSTREAM << 8) | id, meas.raw, sizeof(RTDataUpstream)))
+  {
+    spdlog::warn("[{}] send_measures: CAN write failed", id);
+  }
 }
 
 }  // namespace orthopus

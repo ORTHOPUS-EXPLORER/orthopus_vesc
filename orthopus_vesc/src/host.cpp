@@ -155,7 +155,10 @@ void VESCHost::send_refs()
     ref.f.qd = f_u16(1.102, ORTHOPUS_COMM_RT_POS_SCALE);
     ref.f.dqd = f_u16(1.304, ORTHOPUS_COMM_RT_VEL_SCALE);
     ref.f.tauf = f_u16(1.506, ORTHOPUS_COMM_RT_TRQ_SCALE);
-    can_->write((CAN_RT_DATA_DOWNSTREAM << 8) | board_id, ref.raw, sizeof(RTDataDownstream));
+    if (!can_->write((CAN_RT_DATA_DOWNSTREAM << 8) | board_id, ref.raw, sizeof(RTDataDownstream)))
+    {
+      spdlog::warn("[{}] send_refs: CAN write failed", board_id);
+    }
   }
 }
 
