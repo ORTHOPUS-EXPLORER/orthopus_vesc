@@ -65,6 +65,8 @@ void realtime_write_callback(
     data.meas.at("position").v = data.refs.at("position").v;
     data.meas.at("velocity").v = data.refs.at("velocity").v;
     data.meas.at("effort").v = data.refs.at("effort").v;
+    // Refresh the last measure timestamp to prevent measure stale error check
+    vesc->_meas_last_tp = vescpp::Time::now();
   }
 };
 
