@@ -40,6 +40,8 @@ public:
     // update loop can't leave the motor streaming its last command forever.
     std::optional<std::atomic<vescpp::Time::time_point>> last_command_timepoint;
     std::chrono::milliseconds command_watchdog_timeout{200};
+    // Consecutive CAN write failures, reset to 0 on success.
+    mutable std::atomic<unsigned int> can_write_fail_count{0};
   };
 
   VESCTarget(const vescpp::VESC::BoardId id, vescpp::VESCHost* host = nullptr);

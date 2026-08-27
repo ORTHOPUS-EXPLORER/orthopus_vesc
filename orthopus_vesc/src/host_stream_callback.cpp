@@ -4,6 +4,24 @@
 
 namespace orthopus
 {
+namespace
+{
+// Sends a CAN frame and updates the can_write_fail_count accordingly
+void can_write_and_update_fail_count(
+  const std::shared_ptr<vescpp::comm::CAN>& can, vescpp::comm::CAN::Id id, const uint8_t* raw,
+  uint8_t len, std::atomic<unsigned int>& can_write_fail_count)
+{
+  if (can->write(id, raw, len))
+  {
+    can_write_fail_count.store(0);
+  }
+  else
+  {
+    can_write_fail_count.fetch_add(1);
+  }
+}
+}  // namespace
+
 // CAN writer callbacks
 void realtime_write_callback(
   const std::shared_ptr<orthopus::VESCTarget>& vesc, const std::shared_ptr<vescpp::comm::CAN>& can,
@@ -38,7 +56,9 @@ void realtime_write_callback(
   ref.f.qd = f_u16(fmodf(pos_ref + M_PI, 2.0f * M_PI) - M_PI, ORTHOPUS_COMM_RT_POS_SCALE);
   ref.f.dqd = f_u16(vel_ref, ORTHOPUS_COMM_RT_VEL_SCALE);
   ref.f.tauf = f_u16(trq_ref, ORTHOPUS_COMM_RT_TRQ_SCALE);
-  can->write((CAN_RT_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(RTDataDownstream));
+  can_write_and_update_fail_count(
+    can, (CAN_RT_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(RTDataDownstream),
+    data.can_write_fail_count);
   if (simulate_response)
   {
     auto& data = vesc->acquire_joint();
@@ -56,8 +76,9 @@ void auxiliary_servo_write_callback(
   const auto& data = vesc->get_servo();
   if (!(data.in_use && data.stream)) return;
   ref.f.servo = f_u16(data.refs.at("position").v, ORTHOPUS_COMM_AUX_SERVO_SCALE);
-  can->write(
-    (CAN_AUX_SERVO_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxServoDataDownstream));
+  can_write_and_update_fail_count(
+    can, (CAN_AUX_SERVO_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxServoDataDownstream),
+    data.can_write_fail_count);
   if (simulate_response)
   {
     auto& data = vesc->acquire_servo();
@@ -78,8 +99,9 @@ void auxiliary_config_write_callback(
     f_u16(data.impedance_control_damping.value(), ORTHOPUS_COMM_IMPEDANCE_DAMPING_SCALE);
   ref.f.impedance_control_stiffness =
     f_u16(data.impedance_control_stiffness.value(), ORTHOPUS_COMM_IMPEDANCE_STIFFNESS_SCALE);
-  can->write(
-    (CAN_AUX_CONFIG_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxConfigDataDownstream));
+  can_write_and_update_fail_count(
+    can, (CAN_AUX_CONFIG_DATA_DOWNSTREAM << 8) | vesc->id, ref.raw, sizeof(AuxConfigDataDownstream),
+    data.can_write_fail_count);
 };
 // Can write callbacks - end
 
