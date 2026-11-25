@@ -34,10 +34,10 @@ public:
   void execute(
     const std::shared_ptr<orthopus::VESCTarget>& vesc,
     const std::shared_ptr<vescpp::comm::CAN>& can);
+  // To call once per cycle, after `execute` was called for each target
+  void refresh_next_call_time();
 
 private:
-  void refresh_next_call_time_();
-
   VESCHostStreamType type_;
   std::chrono::milliseconds ms_wait_;
   bool simulate_response_;

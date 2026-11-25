@@ -86,7 +86,7 @@ VESCHost::VESCHost(
           auto current_next_call_time = stream_callback.get_next_call_time();
           if (current_next_call_time <= now)
           {
-            for (const auto& [board_id, it] : _devs)
+            for (const auto& [board_id, it] : getDevices())
             {
               stream_callback.execute(std::dynamic_pointer_cast<VESCTarget>(it), can_);
             }
@@ -107,7 +107,7 @@ VESCHost::VESCHost(
       }
       // Force in POS mode on the last meas
       // Note: I suspect it's never called because of vesc already freed before getting there
-      for (auto& [_, it] : _devs)
+      for (const auto& [_, it] : getDevices())
       {
         auto vesc = std::dynamic_pointer_cast<VESCTarget>(it);
         auto& data = vesc->acquire_joint();
@@ -147,7 +147,7 @@ std::shared_ptr<VESCTarget> VESCHost::add_target(
 
 void VESCHost::send_refs()
 {
-  for (auto& it : _devs)
+  for (const auto& it : getDevices())
   {
     auto board_id = it.first;
     RTDataDownstream ref{};
@@ -218,7 +218,7 @@ void VESCHost::process_rt_data_us(
 void VESCHost::print_stats()
 {
   spdlog::info("[{:>3d}] VESCHost devices statistics:", this->id);
-  for (const auto& [board_id, _] : _devs)
+  for (const auto& [board_id, _] : getDevices())
   {
 #define STATS_FLOAT_FMT " 8.5f"
 #define STATS_FLOAT_UNIT "ms"
