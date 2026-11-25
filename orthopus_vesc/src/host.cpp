@@ -65,13 +65,16 @@ VESCHost::VESCHost(
   {
     spdlog::error(
       "[{}] A stream rate was set to 0 Hz, please check all the stream rates provided", this_id);
-    throw std::runtime_error("VESCHost: a stream rate was set to 0 Hz, please check all the stream rates provided");
+    throw std::runtime_error(
+      "VESCHost: a stream rate was set to 0 Hz, please check all the stream rates provided");
   }
 
   stream_list_ = {
     VESCHostStreamCallback(VESCHostStreamType::REALTIME, realtime_stream_rate, simulate_response),
-    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate, simulate_response),
-    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate, simulate_response)};
+    VESCHostStreamCallback(
+      VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate, simulate_response),
+    VESCHostStreamCallback(
+      VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate, simulate_response)};
 
   tx_th_ = std::thread(
     [this]()
@@ -86,10 +89,12 @@ VESCHost::VESCHost(
           auto current_next_call_time = stream_callback.get_next_call_time();
           if (current_next_call_time <= now)
           {
-            for (const auto& [board_id, it] : _devs)
+            for (const auto& [board_id, it] : getDevices())
             {
               stream_callback.execute(std::dynamic_pointer_cast<VESCTarget>(it), can_);
             }
+            // Also needed without any target, otherwise this loop never sleeps
+            stream_callback.refresh_next_call_time();
           }
           // Get updated next call time
           current_next_call_time = stream_callback.get_next_call_time();
@@ -107,11 +112,13 @@ VESCHost::VESCHost(
       }
       // Force in POS mode on the last meas
       // Note: I suspect it's never called because of vesc already freed before getting there
-      for (auto& [_, it] : _devs)
+      for (const auto& [_, it] : getDevices())
       {
         auto vesc = std::dynamic_pointer_cast<VESCTarget>(it);
+        // If device is not orthopus::VESCTarget, do nothing
+        if (!vesc) continue;
         auto& data = vesc->acquire_joint();
-        if (!(data.in_use && data.stream)) return;
+        if (!(data.in_use && data.stream)) continue;
         data.ctrl = ORTHOPUS_CTRL_MODE_POS;
         data.refs.at("position").v = data.meas.at("position").v;
         data.refs.at("velocity").v = 0.0;
@@ -137,7 +144,7 @@ std::shared_ptr<VESCTarget> VESCHost::add_target(
   spdlog::debug(
     "[{}<={}] Add CAN Handler 0x{:04X} to receive CAN_RT_DATA_UPSTREAM (check firmware ? [{}])", id,
     board_id, can_id, check_firmware_version);
-  can_->_can_handlers.emplace_back(
+  can_->addHandler(
     can_id, [this](
               vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t* data,
               uint8_t len) { process_rt_data_us(can, can_id, data, len); });
@@ -147,7 +154,7 @@ std::shared_ptr<VESCTarget> VESCHost::add_target(
 
 void VESCHost::send_refs()
 {
-  for (auto& it : _devs)
+  for (const auto& it : getDevices())
   {
     auto board_id = it.first;
     RTDataDownstream ref{};
@@ -218,7 +225,7 @@ void VESCHost::process_rt_data_us(
 void VESCHost::print_stats()
 {
   spdlog::info("[{:>3d}] VESCHost devices statistics:", this->id);
-  for (const auto& [board_id, _] : _devs)
+  for (const auto& [board_id, _] : getDevices())
   {
 #define STATS_FLOAT_FMT " 8.5f"
 #define STATS_FLOAT_UNIT "ms"

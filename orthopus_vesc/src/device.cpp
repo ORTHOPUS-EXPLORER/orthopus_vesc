@@ -17,7 +17,7 @@ VESCDevice::VESCDevice(vescpp::VESC::BoardId this_id, std::shared_ptr<vescpp::Co
     spdlog::error("[{}] Only CAN communication is supported right now", this_id);
     throw std::runtime_error("VESCDevice: only CAN communication is supported right now");
   }
-  can_->_can_handlers.emplace_back(
+  can_->addHandler(
     (CAN_RT_DATA_DOWNSTREAM << 8) | id,
     std::bind(
       &VESCDevice::process_rt_data_downstream, this, std::placeholders::_1, std::placeholders::_2,

@@ -140,11 +140,10 @@ void VESCHostStreamCallback::execute(
   if (callback_ && vesc && can)
   {
     callback_(vesc, can, simulate_response_);
-    refresh_next_call_time_();
   }
 }
 
-void VESCHostStreamCallback::refresh_next_call_time_()
+void VESCHostStreamCallback::refresh_next_call_time()
 {
   next_call_time_ = std::chrono::steady_clock::now() + ms_wait_;
 }
