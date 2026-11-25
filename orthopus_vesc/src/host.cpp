@@ -65,13 +65,16 @@ VESCHost::VESCHost(
   {
     spdlog::error(
       "[{}] A stream rate was set to 0 Hz, please check all the stream rates provided", this_id);
-    throw std::runtime_error("VESCHost: a stream rate was set to 0 Hz, please check all the stream rates provided");
+    throw std::runtime_error(
+      "VESCHost: a stream rate was set to 0 Hz, please check all the stream rates provided");
   }
 
   stream_list_ = {
     VESCHostStreamCallback(VESCHostStreamType::REALTIME, realtime_stream_rate, simulate_response),
-    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate, simulate_response),
-    VESCHostStreamCallback(VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate, simulate_response)};
+    VESCHostStreamCallback(
+      VESCHostStreamType::AUXILIARY_GRIPPER, auxiliary_gripper_stream_rate, simulate_response),
+    VESCHostStreamCallback(
+      VESCHostStreamType::AUXILIARY_CONFIG, auxiliary_config_stream_rate, simulate_response)};
 
   tx_th_ = std::thread(
     [this]()
@@ -112,8 +115,10 @@ VESCHost::VESCHost(
       for (const auto& [_, it] : getDevices())
       {
         auto vesc = std::dynamic_pointer_cast<VESCTarget>(it);
+        // If device is not orthopus::VESCTarget, do nothing
+        if (!vesc) continue;
         auto& data = vesc->acquire_joint();
-        if (!(data.in_use && data.stream)) return;
+        if (!(data.in_use && data.stream)) continue;
         data.ctrl = ORTHOPUS_CTRL_MODE_POS;
         data.refs.at("position").v = data.meas.at("position").v;
         data.refs.at("velocity").v = 0.0;
