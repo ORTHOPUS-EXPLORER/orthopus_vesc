@@ -90,6 +90,8 @@ VESCHost::VESCHost(
             {
               stream_callback.execute(std::dynamic_pointer_cast<VESCTarget>(it), can_);
             }
+            // Also needed without any target, otherwise this loop never sleeps
+            stream_callback.refresh_next_call_time();
           }
           // Get updated next call time
           current_next_call_time = stream_callback.get_next_call_time();
