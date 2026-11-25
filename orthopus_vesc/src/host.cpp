@@ -139,7 +139,7 @@ std::shared_ptr<VESCTarget> VESCHost::add_target(
   spdlog::debug(
     "[{}<={}] Add CAN Handler 0x{:04X} to receive CAN_RT_DATA_UPSTREAM (check firmware ? [{}])", id,
     board_id, can_id, check_firmware_version);
-  can_->_can_handlers.emplace_back(
+  can_->addHandler(
     can_id, [this](
               vescpp::comm::CAN* can, const vescpp::comm::CAN::Id can_id, const uint8_t* data,
               uint8_t len) { process_rt_data_us(can, can_id, data, len); });
